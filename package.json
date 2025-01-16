@@ -1,6 +1,6 @@
 {
     "name": "chatnest",
-    "version": "5.0.3",
+    "version": "6.2.3",
     "description": "A lightweight, customizable, and responsive chat widget for modern web applications.",
     "main": "dist/chat-widget.min.js",
     "scripts": {

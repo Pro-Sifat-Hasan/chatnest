@@ -39,7 +39,7 @@ ChatNest is a lightweight, customizable, and easy-to-integrate JavaScript widget
 To include ChatNest in your project, add the following CDN link to your HTML file:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@5.0.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@6.0.0"></script>
 ```
 
 Alternatively, you can install it using npm:
