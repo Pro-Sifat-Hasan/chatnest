@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Widget Test - API Debug</title>
+</head>
+<body>
+    <h1>Chat Widget Test</h1>
+    <p>Testing with API: https://neurobrain-api-712099492551.us-central1.run.app/chat</p>
+    
+    <script src="dist/chat-widget.min.js" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatWidget = new EasyChatWidget({
+                botName: 'EasyChat',
+                greeting: 'Hi there! How can I assist you today?',
+                apiEndpoint: 'https://abroadmate-support-ai-712099492551.europe-west1.run.app/chat',
+                
+                // Using gradient primary color
+                primaryColor: 'linear-gradient(to right, #2563eb, #9333ea)',
+                
+                // Custom branding
+                showBranding: true,
+                brandingText: 'NeuroBrain', // Will show as "Powered by NeuroBrain"
+                brandingUrl: 'https://neurobrains.co/',
+                
+                // Message actions (copy, like, dislike, regenerate buttons)
+                showMessageActions: false, // Set to true to enable action buttons
+                
+                width: '400px',
+                height: '600px',
+                
+                // Required configuration for your API
+                useMultipartFormData: true, // Changed to true for form-encoded API
+                apiDataFormat: 'form-data', // Changed to form-data format
+                enableFileUpload: false, // Disabled for form-encoded API
+                enableDeleteButton: true,
+                
+                // Typing indicator configuration
+                typingIndicatorColor: '#666', // Single color for all 3 dots - you can change to '#000' for black
+                showTypingText: false, // Disable "AI is thinking..." text
+                
+                // Toggle button customization - Try different options:
+                // toggleButtonIcon: '💬', // Current: Chat emoji
+                
+                // Other toggle button icon options you can try:
+                toggleButtonIcon: '🤖', // Robot emoji
+                // toggleButtonIcon: '💭', // Thought bubble emoji
+                // toggleButtonIcon: '📞', // Phone emoji
+                // toggleButtonIcon: '🎯', // Target emoji
+                // toggleButtonIcon: 'https://example.com/chat-icon.png', // Image URL
+                // toggleButtonIcon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>', // Custom SVG
+                
+                // Chat background customization
+                // chatBackgroundImage: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=800&h=600&fit=crop', // Custom background image for chat messages
+                // Other background image options you can try:
+                // chatBackgroundImage: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop', // Abstract gradient
+                // chatBackgroundImage: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&h=600&fit=crop', // Geometric pattern
+                // chatBackgroundImage: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?w=800&h=600&fit=crop', // Tech background
+                
+                // Chat background color (used when no image is set)
+                // chatBackgroundColor: '#f8f9fa', // Light gray background - try different colors:
+                chatBackgroundColor: '#ffffff', // White background (default)
+                // chatBackgroundColor: '#e3f2fd', // Light blue background
+                // chatBackgroundColor: '#f3e5f5', // Light purple background
+                // chatBackgroundColor: '#e8f5e8', // Light green background
+                
+                // Send button customization
+                sendButtonIconSize: 28, // Send button icon size in pixels (default: 24px)
+                // sendButtonIconSize: 32, // Larger icon
+                // sendButtonIconSize: 20, // Smaller icon
+                
+                // Mobile input handling - ENABLED BY DEFAULT FOR SMOOTH MOBILE EXPERIENCE
+                enableEnhancedMobileInput: true, // Enhanced mobile input handling (default: true)
+                // enableEnhancedMobileInput: false, // Disable enhanced mobile input handling
+
+                showMessageActions: true,
+                
+                // Text box configuration (floating message above toggle button)
+                showTextBox: true, // Show floating text box above toggle button
+                textBoxMessage: 'Hi there! Need any help? I\'m always here to assist you.', // Main text message
+                textBoxSubMessage: '💬 24/7 Live Chat Support', // Sub message with emoji
+                showTextBoxCloseButton: true, // Show close button on text box
+                
+                // Toggle button animation (try different values: 0-5)
+                toggleButtonAnimation: 4, // 0=none, 1=pulse, 2=bounce, 3=shake, 4=infinity(grow-shrink), 5=rotate
+                // toggleButtonAnimation: 0, // No animation
+                // toggleButtonAnimation: 1, // Pulse animation
+                // toggleButtonAnimation: 2, // Bounce animation
+                // toggleButtonAnimation: 3, // Shake animation
+                // toggleButtonAnimation: 5, // Rotate animation
+                
+                // Toggle button size and positioning (new advanced configs)
+                toggleButtonSize: 65, // Toggle button size in pixels (40-80px, default: 60px)
+                toggleButtonBottomMargin: 50, // Bottom margin in pixels (10-50px, default: 50px)
+                toggleButtonRightMargin: 30, // Right margin in pixels (10-100px, default: 30px)
+                // toggleButtonSize: 50, // Smaller button
+                // toggleButtonSize: 75, // Larger button
+                // toggleButtonBottomMargin: 25, // Less margin
+                // toggleButtonRightMargin: 15, // Less right margin
+                
+                // Advanced website integration spacing (new robust configs)
+                websiteBottomSpacing: 0, // Additional spacing from website bottom (0-100px, default: 0px)
+                textBoxSpacingFromToggle: 0, // Spacing between text box and toggle button (0-30px, default: 0px for touching)
+                
+                // Text box text color configuration
+                textBoxTextColor: 'primary', // Text color for text box ('primary' for primary color, 'default' for standard colors, or any CSS color)
+                // websiteBottomSpacing: 50, // More space from website bottom
+                // textBoxSpacingFromToggle: 10, // Closer to toggle button
+                // textBoxSpacingFromToggle: 25, // Further from toggle button
+                
+                // AI Avatar customization
+                aiAvatar: '❤️‍🔥', // AI avatar - try different options:
+                // aiAvatar: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100&h=100&fit=crop', // AI image
+                // aiAvatar: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>', // AI SVG
+                showAiAvatar: true, // Show AI avatar in bot messages (default: true)
+                // showAiAvatar: false, // Hide AI avatar
+                
+                // Bot subname customization
+                botSubname: 'Your AI Assistant', // Bot subname or descriptive text
+                showBotSubname: true, // Show bot subname (default: true)
+                // showBotSubname: false, // Hide bot subname
+                
+                // HubSpot form configuration
+                showFormOnStart: true, // Show form when chat opens (default: false)
+                useEmailAsUserId: true, // Use email as user ID (default: false)
+                
+                // Form text customization
+                formTitle: 'Get Started', // Form title - try different options:
+                // formTitle: 'Contact Us',
+                // formTitle: 'Join Our Community',
+                // formTitle: 'Request Information',
+                
+                formSubtitle: 'Please provide your details to begin chatting with us.', // Form subtitle - try different options:
+                // formSubtitle: 'We\'d love to hear from you!',
+                // formSubtitle: 'Tell us about yourself to get personalized assistance.',
+                // formSubtitle: 'Fill out the form below and we\'ll get back to you.',
+                
+                // Theme configuration
+                theme: 'light', // 'light', 'dark', or 'system' - try different options:
+                // theme: 'dark', // Dark theme
+                // theme: 'system', // Follows system preference
+                
+                // Typewriter with scroll configuration
+                typewritewithscroll: false, // When true: AI response typewriter with scrolling, when false: AI response typewriter without scrolling (default: false)
+                // typewritewithscroll: true, // Enable scrolling during typewriter effect
+                
+                // HubSpot integration settings
+                hubspot: {
+                    enabled: true, // Enable HubSpot form (default: false)
+                    portalId: '48446092', // Replace with your HubSpot Portal ID
+                    formGuid: 'fd587e17-e873-4766-abe2-0dd2f89caa12', // Replace with your HubSpot Form GUID
+                    triggerKeywords: ['pricing', 'demo', 'contact', 'quote', 'help', 'support'] // Keywords that trigger form (not used when showFormOnStart is true)
+                },
+                
+                // Match your API's expected field names exactly
+                apiRequestFormat: {
+                    query: 'query',        // Your API expects 'query' field
+                    userId: 'userId',      // Your API expects 'userId' field  
+                    domain: 'domain'       // Your API expects 'domain' field
+                },
+                // Set correct headers for form-encoded API
+                apiHeaders: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                apiResponseFormat: {
+                    response: 'response'   // Your API returns 'response' field
+                },
+                
+                // Custom request transformer to ensure proper JSON format
+                transformRequest: (requestData) => {
+                    console.log('🔧 Transforming request data:', requestData);
+                    return {
+                        query: requestData.query,
+                        userId: requestData.userId,
+                        domain: requestData.domain
+                    };
+                },
+                
+                // Debug callbacks
+                onMessage: (message) => {
+                    console.log('📤 Message sent:', message);
+                },
+                onError: (error) => {
+                    console.error('❌ Chat error:', error);
+                    console.error('🔍 Error details:', {
+                        message: error.message,
+                        stack: error.stack,
+                        config: {
+                            apiEndpoint: 'https://abroadmate-support-ai-712099492551.europe-west1.run.app/chat',
+                            useMultipartFormData: true,
+                            apiDataFormat: 'form-data',
+                            apiRequestFormat: {
+                                query: 'query',
+                                userId: 'userId',
+                                domain: 'domain'
+                            }
+                        }
+                    });
+                },
+                
+                // Test method to reset form status (for testing)
+                onInit: function() {
+                    console.log('✅ Chat widget initialized');
+                    console.log('🔧 Configuration:', {
+                        apiEndpoint: 'https://abroadmate-support-ai-712099492551.europe-west1.run.app/chat',
+                        useMultipartFormData: true,
+                        apiDataFormat: 'form-data',
+                        toggleButtonIcon: '🤖',
+                        showFormOnStart: true,
+                        hubspot: {
+                            enabled: true,
+                            portalId: '12345678',
+                            formGuid: 'abc12345-def6-7890-ghij-klmnopqrstuv'
+                        },
+                        apiRequestFormat: {
+                            query: 'query',
+                            userId: 'userId',
+                            domain: 'domain'
+                        }
+                    });
+                    
+                    // Add test button to reset form status
+                    setTimeout(() => {
+                        const testButton = document.createElement('button');
+                        testButton.textContent = '🔄 Reset Form Status (Test)';
+                        testButton.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 10000; padding: 10px; background: #ff6b6b; color: white; border: none; border-radius: 5px; cursor: pointer;';
+                        testButton.onclick = () => {
+                            localStorage.clear();
+                            location.reload();
+                        };
+                        document.body.appendChild(testButton);
+                    }, 1000);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

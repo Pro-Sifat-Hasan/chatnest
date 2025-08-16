@@ -22,6 +22,277 @@ class EasyChatWidget {
         }
     }
 
+    // Helper function to convert hex color to RGB or handle gradients
+    hexToRgb(color) {
+        if (!color) return '0, 132, 255'; // Default blue
+        
+        // Check if it's a gradient
+        if (color.includes('linear-gradient') || color.includes('radial-gradient')) {
+            // For gradients, extract the first color for RGB purposes
+            const colorMatch = color.match(/#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}/);
+            if (colorMatch) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colorMatch[0]);
+                return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0, 132, 255';
+            }
+            return '0, 132, 255';
+        }
+        
+        // Handle regular hex color
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+        return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '0, 132, 255';
+    }
+
+    // Helper function to check if color is a gradient
+    isGradient(color) {
+        return color && (color.includes('linear-gradient') || color.includes('radial-gradient'));
+    }
+
+    // Theme detection and application
+    getCurrentTheme() {
+        if (this.config.theme === 'system') {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return this.config.theme;
+    }
+
+    getThemeColor(type) {
+        const theme = this.getCurrentTheme();
+        
+        const colors = {
+            light: {
+                bg: '#ffffff',
+                text: '#333333',
+                border: '#e1e5e9',
+                inputBg: '#ffffff',
+                messageBg: '#ffffff',
+                headerBg: '#ffffff',
+                headerText: '#333333'
+            },
+            dark: {
+                bg: '#1a1a1a',
+                text: '#ffffff',
+                border: '#404040',
+                inputBg: '#2d2d2d',
+                messageBg: '#2d2d2d',
+                headerBg: '#2d2d2d',
+                headerText: '#ffffff'
+            }
+        };
+        
+        return colors[theme]?.[type] || colors.light[type];
+    }
+
+    applyTheme() {
+        const theme = this.getCurrentTheme();
+        if (this.widget) {
+            this.widget.className = `chat-widget ${theme}-theme`;
+        }
+        
+        // Listen for system theme changes if using 'system' theme
+        if (this.config.theme === 'system') {
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            mediaQuery.addEventListener('change', () => {
+                this.loadStyles();
+            });
+        }
+    }
+    
+    generateAiAvatar() {
+        if (!this.config.showAiAvatar) return '';
+        
+        const avatar = this.config.aiAvatar;
+        
+        if (!avatar) {
+            // Default AI avatar
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon">🤖</div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        // Enhanced emoji detection - support Unicode emoji sequences
+        if (this.isEmoji(avatar)) {
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon emoji-avatar">${avatar}</div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        // Enhanced URL detection - support various protocols and formats
+        if (this.isImageUrl(avatar)) {
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon image-avatar">
+                        <img src="${avatar}" alt="${this.config.botName}" 
+                             onerror="this.style.display='none'; this.parentNode.innerHTML='🤖';" 
+                             onload="this.style.display='block';" />
+                    </div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        // Enhanced SVG detection and handling
+        if (this.isSvg(avatar)) {
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon svg-avatar">
+                        ${this.sanitizeSvg(avatar)}
+                    </div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        // Try as plain text/character - could be special character or icon font
+        if (avatar.length <= 10) {
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon text-avatar">${avatar}</div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        // Fallback to default
+        return `
+            <div class="ai-avatar">
+                <div class="ai-avatar-icon">🤖</div>
+                <div class="ai-name">${this.config.botName}</div>
+            </div>
+        `;
+    }
+
+    // Enhanced emoji detection
+    isEmoji(str) {
+        if (!str || str.length > 20) return false;
+        
+        // Unicode emoji ranges and patterns
+        const emojiRegex = /^[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]|[\u{FE0F}]|[\u{200D}]|[\u{E0020}-\u{E007F}]/u;
+        
+        // Additional check for emoji sequences (like skin tone modifiers, zero-width joiners)
+        const hasEmojiSequence = /[\u{1F3FB}-\u{1F3FF}]|[\u{200D}]|[\u{FE0F}]/u.test(str);
+        
+        return emojiRegex.test(str) || hasEmojiSequence || /\p{Emoji}/u.test(str);
+    }
+
+    // Enhanced URL detection
+    isImageUrl(str) {
+        if (!str || typeof str !== 'string') return false;
+        
+        // Check for various protocols and formats
+        const urlPatterns = [
+            /^https?:\/\/.+\.(jpg|jpeg|png|gif|svg|webp|bmp|ico)(\?.*)?$/i,
+            /^data:image\/.+;base64,/i,
+            /^\/.*\.(jpg|jpeg|png|gif|svg|webp|bmp|ico)(\?.*)?$/i,
+            /^\.\.?\/.*\.(jpg|jpeg|png|gif|svg|webp|bmp|ico)(\?.*)?$/i,
+        ];
+        
+        return urlPatterns.some(pattern => pattern.test(str.trim())) || 
+               str.startsWith('http') || 
+               str.startsWith('data:image') || 
+               str.startsWith('/') ||
+               str.includes('://');
+    }
+
+    // Enhanced SVG detection
+    isSvg(str) {
+        if (!str || typeof str !== 'string') return false;
+        
+        const trimmed = str.trim();
+        return trimmed.startsWith('<svg') && trimmed.includes('</svg>');
+    }
+
+    // SVG sanitization for security
+    sanitizeSvg(svg) {
+        // Basic sanitization - remove dangerous attributes and scripts
+        let sanitized = svg
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/on\w+="[^"]*"/gi, '')
+            .replace(/on\w+='[^']*'/gi, '')
+            .replace(/javascript:/gi, '')
+            .replace(/vbscript:/gi, '')
+            .replace(/data:/gi, '');
+        
+        // Ensure viewBox is set for proper scaling
+        if (!sanitized.includes('viewBox') && sanitized.includes('<svg')) {
+            sanitized = sanitized.replace('<svg', '<svg viewBox="0 0 24 24"');
+        }
+        
+        return sanitized;
+    }
+
+    generateGreetingAvatar() {
+        // Always generate avatar for greeting message (ignore showAiAvatar setting)
+        const avatar = this.config.aiAvatar;
+        
+        if (!avatar) {
+            // Default AI avatar
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon">🤖</div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        // Use enhanced detection methods
+        if (this.isEmoji(avatar)) {
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon emoji-avatar">${avatar}</div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        if (this.isImageUrl(avatar)) {
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon image-avatar">
+                        <img src="${avatar}" alt="${this.config.botName}"
+                             onerror="this.style.display='none'; this.parentNode.innerHTML='🤖';" 
+                             onload="this.style.display='block';" />
+                    </div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        if (this.isSvg(avatar)) {
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon svg-avatar">
+                        ${this.sanitizeSvg(avatar)}
+                    </div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        // Try as plain text/character
+        if (avatar.length <= 10) {
+            return `
+                <div class="ai-avatar">
+                    <div class="ai-avatar-icon text-avatar">${avatar}</div>
+                    <div class="ai-name">${this.config.botName}</div>
+                </div>
+            `;
+        }
+        
+        // Fallback to default
+        return `
+            <div class="ai-avatar">
+                <div class="ai-avatar-icon">🤖</div>
+                <div class="ai-name">${this.config.botName}</div>
+            </div>
+        `;
+    }
+
     initConfig(config) {
         // Helper function to clamp dimensions
         const clampDimension = (value, min, max) => {
@@ -61,7 +332,7 @@ class EasyChatWidget {
                 return `${window.location.origin}${endpoint}`;
             }
             
-            // If endpoint doesn't start with http(s), assume http
+            // If endpoint doesn't start with http, assume http
             if (!endpoint.startsWith('http')) {
                 return `http://${endpoint}`;
             }
@@ -71,7 +342,7 @@ class EasyChatWidget {
 
         this.config = {
             botName: config.botName || 'Chat Assistant',
-            botImage: config.botImage || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath fill="%23fff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"%3E%3C/path%3E%3C/svg%3E',
+            botImage: config.botImage || 'https://cdn-icons-png.flaticon.com/512/1786/1786548.png',
             greeting: config.greeting || 'Hello! How can I help you today?',
             placeholder: config.placeholder || 'Type your message here...',
             primaryColor: config.primaryColor || '#0084ff',
@@ -85,6 +356,7 @@ class EasyChatWidget {
             maxHistoryLength: config.maxHistoryLength || 100,
             enableTypewriter: config.enableTypewriter !== false,
             typewriterSpeed: config.typewriterSpeed || { min: 30, max: 70 },
+            typewritewithscroll: config.typewritewithscroll !== undefined ? config.typewritewithscroll : false, // When true: typewriter with scrolling, when false: typewriter without scrolling
             chips: config.chips || [],
             customStyles: config.customStyles || {},
             onInit: config.onInit || null,
@@ -121,6 +393,74 @@ class EasyChatWidget {
             },
             position: config.position || 'bottom-right',
             enableServerHistoryDelete: true, // New option to control backend history deletion
+            // New configuration options for file upload and delete buttons
+            enableFileUpload: config.enableFileUpload !== false, // Default to true
+            enableDeleteButton: config.enableDeleteButton !== false, // Default to true
+            // API configuration for proper multipart handling
+            useMultipartFormData: config.useMultipartFormData !== false, // Default to true for file uploads
+            apiDataFormat: config.apiDataFormat || 'json', // 'json' or 'form-data'
+            // Typing indicator configuration
+            typingIndicatorColor: config.typingIndicatorColor || '#666', // Color for typing indicator dots
+            showTypingText: false, // Disable "AI is thinking..." text for cleaner look
+            
+            // Toggle button customization
+            toggleButtonIcon: config.toggleButtonIcon || null, // Custom icon for toggle button (emoji, image URL, or SVG)
+            
+            // Chat background customization
+            chatBackgroundImage: config.chatBackgroundImage || null, // Custom background image for chat messages section
+            chatBackgroundColor: config.chatBackgroundColor || '#ffffff', // Custom background color for chat messages section (default: white)
+            
+            // Send button customization
+            sendButtonIconSize: config.sendButtonIconSize || 24, // Size of send button icon in pixels (default: 24px)
+            
+            // Mobile input handling
+            enableEnhancedMobileInput: config.enableEnhancedMobileInput !== false, // Enhanced mobile input handling (default: true)
+            
+            // AI Avatar customization
+            aiAvatar: config.aiAvatar || null, // AI avatar (emoji, image URL, or SVG) for bot messages
+            showAiAvatar: config.showAiAvatar !== false, // Show AI avatar in bot messages (default: true)
+            botSubname: config.botSubname || null, // Subname or descriptive text for the bot (displayed under bot name)
+            showBotSubname: config.showBotSubname !== false, // Show bot subname (default: true)
+            
+                        // HubSpot form configuration
+            showFormOnStart: config.showFormOnStart !== false, // Show form when chat opens (default: true)
+            useEmailAsUserId: config.useEmailAsUserId !== false, // Use email as user ID (default: true)
+            
+            // Form text customization
+            formTitle: config.formTitle || 'Give Your Details', // Form title text
+            formSubtitle: config.formSubtitle || 'Please provide your information to start chatting.', // Form subtitle text
+            
+            // Theme configuration
+            theme: config.theme || 'light', // 'light', 'dark', or 'system'
+            
+            // Branding configuration
+            showBranding: config.showBranding !== false, // Show branding section (default: true)
+            brandingText: config.brandingText || 'Powered by NeuroBrain', // Branding text
+            brandingUrl: config.brandingUrl || 'https://neurobrains.co/', // Branding link URL
+            
+            // Message actions configuration
+            showMessageActions: config.showMessageActions !== false, // Show copy, like, dislike, regenerate buttons (default: true)
+            
+            // Text box configuration (floating message above toggle button)
+            showTextBox: config.showTextBox !== false, // Show floating text box above toggle button (default: true)
+            textBoxMessage: config.textBoxMessage || 'Hi there! If you need any assistance, I am always here.', // Main text message in the box
+            textBoxSubMessage: config.textBoxSubMessage || '💬 24/7 Live Chat Support', // Sub message in the box (appears after line separator)
+            showTextBoxCloseButton: config.showTextBoxCloseButton !== false, // Show close button on text box (default: true)
+            
+            // Toggle button animation configuration
+            toggleButtonAnimation: config.toggleButtonAnimation !== undefined ? Math.max(0, Math.min(5, parseInt(config.toggleButtonAnimation) || 0)) : 4, // Animation type: 0=none, 1=pulse, 2=bounce, 3=shake, 4=infinity(grow-shrink), 5=rotate
+            
+            // Toggle button size and positioning configuration  
+            toggleButtonSize: config.toggleButtonSize ? Math.max(40, Math.min(80, parseInt(config.toggleButtonSize))) : 60, // Toggle button size in pixels (40px - 80px, default: 60px)
+            toggleButtonBottomMargin: config.toggleButtonBottomMargin ? Math.max(10, Math.min(50, parseInt(config.toggleButtonBottomMargin))) : 50, // Bottom margin of toggle button in pixels (10px - 50px, default: 50px)
+            toggleButtonRightMargin: config.toggleButtonRightMargin ? Math.max(10, Math.min(100, parseInt(config.toggleButtonRightMargin))) : 30, // Right margin of toggle button in pixels (10px - 100px, default: 30px)
+            
+            // Advanced spacing configuration for website integration
+            websiteBottomSpacing: config.websiteBottomSpacing ? Math.max(0, Math.min(100, parseInt(config.websiteBottomSpacing))) : 0, // Additional bottom spacing for website integration (0px - 100px, default: 0px)
+            textBoxSpacingFromToggle: config.textBoxSpacingFromToggle !== undefined ? Math.max(0, Math.min(30, parseInt(config.textBoxSpacingFromToggle))) : 0, // Spacing between text box and toggle button (0px - 30px, default: 0px for touching)
+            
+            // Text box text color configuration
+            textBoxTextColor: config.textBoxTextColor || 'primary' // Text color for text box content ('primary' to use primary color, or any CSS color value)
         };
     }
 
@@ -153,16 +493,40 @@ class EasyChatWidget {
     }
 
     loadStyles() {
+        // Apply theme first
+        this.applyTheme();
+        
         const style = document.createElement('style');
         style.textContent = `
             :root {
                 --chat-primary-color: ${this.config.primaryColor};
+                --chat-primary-color-gradient: ${this.isGradient(this.config.primaryColor) ? this.config.primaryColor : this.config.primaryColor};
                 --chat-message-font-size: ${this.config.fontSize};
                 --chat-width: ${this.config.width};
                 --chat-height: ${this.config.height};
-                --chat-toggle-size: 60px;
+                --chat-toggle-size: ${this.config.toggleButtonSize}px;
+                --chat-toggle-bottom-margin: ${this.config.toggleButtonBottomMargin}px;
+                --chat-toggle-right-margin: ${this.config.toggleButtonRightMargin}px;
+                --website-bottom-spacing: ${this.config.websiteBottomSpacing}px;
+                --text-box-spacing-from-toggle: ${this.config.textBoxSpacingFromToggle}px;
+                --text-box-text-color: ${this.config.textBoxTextColor === 'primary' ? this.config.primaryColor : (this.config.textBoxTextColor === 'default' ? '#374151' : this.config.textBoxTextColor)};
+                --text-box-submessage-color: ${this.config.textBoxTextColor === 'primary' ? this.config.primaryColor : (this.config.textBoxTextColor === 'default' ? '#6b7280' : this.config.textBoxTextColor)};
+                --text-box-submessage-opacity: ${this.config.textBoxTextColor === 'primary' ? '0.8' : '1'};
+                --text-box-is-gradient: ${this.config.textBoxTextColor === 'primary' && this.isGradient(this.config.primaryColor) ? 'true' : 'false'};
                 --chat-border-radius: 16px;
                 --chat-shadow: 0 5px 40px rgba(0,0,0,0.16);
+                --typing-dot-color: ${this.config.typingIndicatorColor};
+                --chat-primary-color-rgb: ${this.hexToRgb(this.config.primaryColor)};
+                --send-button-icon-size: ${this.config.sendButtonIconSize}px;
+                
+                /* Theme variables */
+                --chat-bg-color: ${this.getThemeColor('bg')};
+                --chat-text-color: ${this.getThemeColor('text')};
+                --chat-border-color: ${this.getThemeColor('border')};
+                --chat-input-bg: ${this.getThemeColor('inputBg')};
+                --chat-message-bg: ${this.getThemeColor('messageBg')};
+                --chat-header-bg: ${this.getThemeColor('headerBg')};
+                --chat-header-text: ${this.getThemeColor('headerText')};
             }
 
             * {
@@ -202,18 +566,21 @@ class EasyChatWidget {
                 right: auto;
             }
 
-            /* Chat Toggle Button */
+            /* Chat Toggle Button - Positioned above chat window */
             .chat-toggle {
-                width: 60px;
-                height: 60px;
+                width: var(--chat-toggle-size);
+                height: var(--chat-toggle-size);
                 border-radius: 50%;
-                background: var(--chat-primary-color);
+                background: var(--chat-primary-color-gradient);
                 box-shadow: 0 2px 12px rgba(0,0,0,0.15);
                 cursor: pointer;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 transition: transform 0.3s ease;
+                z-index: 2147483650; /* Higher than chat window (2147483647) to appear in front */
+                position: fixed;
+                text-align: center;
             }
 
             .chat-toggle:hover {
@@ -223,6 +590,242 @@ class EasyChatWidget {
             .chat-toggle img {
                 width: 30px;
                 height: 30px;
+                display: block;
+                margin: 0 auto;
+            }
+
+            .chat-toggle span {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+                font-size: 24px;
+                line-height: 1;
+            }
+
+            /* Toggle Button Animations */
+            .chat-toggle.animation-1 {
+                animation: pulseAnimation 2s infinite;
+            }
+
+            .chat-toggle.animation-2 {
+                animation: bounceAnimation 2s infinite;
+            }
+
+            .chat-toggle.animation-3 {
+                animation: shakeAnimation 3s infinite;
+            }
+
+            .chat-toggle.animation-4 {
+                animation: infinityAnimation 3s infinite;
+            }
+
+            .chat-toggle.animation-5 {
+                animation: rotateAnimation 4s infinite linear;
+            }
+
+            /* Keyframe Animations */
+            @keyframes pulseAnimation {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.15); }
+            }
+
+            @keyframes bounceAnimation {
+                0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+                40% { transform: translateY(-10px); }
+                60% { transform: translateY(-5px); }
+            }
+
+            @keyframes shakeAnimation {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                20%, 40%, 60%, 80% { transform: translateX(5px); }
+            }
+
+            @keyframes infinityAnimation {
+                0%, 100% { transform: scale(1); }
+                25% { transform: scale(1.2); }
+                50% { transform: scale(1); }
+                75% { transform: scale(1.2); }
+            }
+
+            @keyframes rotateAnimation {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+
+            /* Text Box Styles - Positioned below chat window for better visibility */
+            .chat-text-box {
+                z-index: 2147483640; /* Lower than chat window (2147483647) to not block branding */
+                max-width: min(280px, calc(100vw - 40px)); /* Responsive max-width with proper margins */
+                pointer-events: auto;
+                box-sizing: border-box;
+                position: fixed; /* Ensure proper stacking context */
+                opacity: 1;
+                /* No transitions for direct show/hide */
+                /* Spacing is now handled by CSS variables in position-specific rules */
+            }
+
+            .chat-text-box-content {
+                background: white;
+                border-radius: 12px;
+                padding: 16px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                border: 1px solid #e5e7eb;
+                position: relative;
+                animation: slideInUp 0.3s ease-out;
+            }
+
+            .chat-text-box-close {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: var(--chat-primary-color-gradient);
+                border: none;
+                cursor: pointer;
+                padding: 8px;
+                border-radius: 50%;
+                color: white;
+                width: 34px;
+                height: 34px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                z-index: 10;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            }
+
+            .chat-text-box-close:hover {
+                filter: brightness(0.9);
+                transform: scale(1.15) rotate(90deg);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
+
+            .chat-text-box-close svg {
+                width: 18px;
+                height: 18px;
+                stroke-width: 2.5;
+            }
+
+            .chat-text-box-message {
+                font-size: 16px;
+                line-height: 1.5;
+                margin-bottom: 14px;
+                font-weight: 600;
+                padding-right: 35px;
+            }
+            
+            /* Gradient text support for text box message */
+            .chat-text-box-message {
+                background: var(--text-box-text-color);
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                color: var(--text-box-text-color); /* Fallback for non-webkit browsers */
+            }
+            
+            /* Non-gradient text fallback */
+            .chat-text-box-message:not([data-gradient="true"]) {
+                background: none;
+                background-clip: unset;
+                -webkit-background-clip: unset;
+                -webkit-text-fill-color: unset;
+                color: var(--text-box-text-color);
+            }
+
+            .chat-text-box-separator {
+                height: 1px;
+                background: #e5e7eb;
+                margin: 0 -4px 14px -4px;
+            }
+
+            .chat-text-box-submessage {
+                font-size: 15px;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                opacity: var(--text-box-submessage-opacity);
+            }
+            
+            /* Gradient text support for text box submessage */
+            .chat-text-box-submessage {
+                background: var(--text-box-submessage-color);
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                color: var(--text-box-submessage-color); /* Fallback for non-webkit browsers */
+            }
+            
+            /* Non-gradient text fallback */
+            .chat-text-box-submessage:not([data-gradient="true"]) {
+                background: none;
+                background-clip: unset;
+                -webkit-background-clip: unset;
+                -webkit-text-fill-color: unset;
+                color: var(--text-box-submessage-color);
+            }
+
+            .chat-text-box-submessage::before {
+                content: '';
+                width: 8px;
+                height: 8px;
+                background: #10b981;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+
+            /* Text Box Animation */
+            @keyframes slideInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            @keyframes slideOutDown {
+                from {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateY(-10px) scale(0.95);
+                }
+            }
+
+            /* Dark theme styles for text box */
+            .chat-widget.dark .chat-text-box-content {
+                background: #374151;
+                border-color: #4b5563;
+            }
+
+            .chat-widget.dark .chat-text-box-message {
+                color: var(--text-box-text-color);
+            }
+
+            .chat-widget.dark .chat-text-box-submessage {
+                color: var(--text-box-submessage-color);
+                opacity: var(--text-box-submessage-opacity);
+            }
+
+            .chat-widget.dark .chat-text-box-separator {
+                background: #4b5563;
+            }
+
+            .chat-widget.dark .chat-text-box-close {
+                color: #9ca3af;
+            }
+
+            .chat-widget.dark .chat-text-box-close:hover {
+                background: #4b5563;
+                color: #d1d5db;
             }
 
             /* Chat Window */
@@ -232,7 +835,7 @@ class EasyChatWidget {
                 right: 20px;
                 width: var(--chat-width);
                 height: var(--chat-height);
-                background: white;
+                background: var(--chat-bg-color);
                 border-radius: var(--chat-border-radius);
                 box-shadow: var(--chat-shadow);
                 display: none;
@@ -274,6 +877,8 @@ class EasyChatWidget {
                 margin: 0;
                 border-top-left-radius: inherit;
                 border-top-right-radius: inherit;
+                border-bottom: 1px solid var(--chat-primary-color);
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             }
 
             /* Fix for header background extending to edges */
@@ -296,6 +901,19 @@ class EasyChatWidget {
                 gap: 0.5rem;
                 position: relative;
                 z-index: 1;
+            }
+            
+            .chat-header-text {
+                display: flex;
+                flex-direction: column;
+                gap: 0.1rem;
+            }
+            
+            .chat-header-subname {
+                font-size: 0.8em;
+                opacity: 0.8;
+                font-weight: 400;
+                line-height: 1.2;
             }
 
             .chat-header-avatar {
@@ -331,14 +949,44 @@ class EasyChatWidget {
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                border-radius: 50%;
+                transition: all 0.2s ease;
+                width: 40px;
+                height: 40px;
+            }
+
+            .erase-chat:hover, .close-chat:hover {
+                background: rgba(255, 255, 255, 0.1);
+                transform: scale(1.05);
+            }
+
+            .erase-chat:active, .close-chat:active {
+                background: var(--chat-primary-color) !important;
+                transform: scale(0.95);
+            }
+
+            /* Enhanced mobile touch support for header buttons */
+            @media (max-width: 768px) {
+                .erase-chat, .close-chat {
+                    width: 44px;
+                    height: 44px;
+                    -webkit-tap-highlight-color: transparent;
+                    touch-action: manipulation;
+                }
+                
+                .erase-chat:active, .close-chat:active {
+                    background: var(--chat-primary-color) !important;
+                    transform: scale(0.9);
+                }
             }
 
             .erase-chat img, .close-chat img {
                 width: 20px;
                 height: 20px;
+                pointer-events: none;
             }
 
-            /* Chat Messages */
+            /* Chat Messages - Normal bottom flow */
             .chat-messages {
                 flex: 1;
                 overflow-y: auto;
@@ -351,6 +999,16 @@ class EasyChatWidget {
                 scroll-behavior: smooth;
                 scrollbar-width: thin;
                 scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+                background: var(--chat-message-bg);
+                ${this.config.chatBackgroundImage ? `
+                background-image: url('${this.config.chatBackgroundImage}');
+                background-size: cover;
+                background-position: center;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+                ` : `
+                background: var(--chat-message-bg);
+                `}
             }
 
             .chat-messages::-webkit-scrollbar {
@@ -377,6 +1035,53 @@ class EasyChatWidget {
                 }
             }
 
+            /* Dark theme styles */
+            .chat-widget.dark-theme .chat-window {
+                background: var(--chat-bg-color);
+                border: 1px solid var(--chat-border-color);
+            }
+
+            .chat-widget.dark-theme .chat-header {
+                background: var(--chat-primary-color);
+                color: white;
+            }
+
+            .chat-widget.dark-theme .chat-input input {
+                background: var(--chat-input-bg);
+                color: var(--chat-text-color);
+                border-color: var(--chat-border-color);
+            }
+
+            .chat-widget.dark-theme .chat-input input::placeholder {
+                color: #888888;
+            }
+
+            .chat-widget.dark-theme .bot-message {
+                background: var(--chat-message-bg);
+                color: var(--chat-text-color);
+                border: 1px solid var(--chat-border-color);
+            }
+
+            .chat-widget.dark-theme .user-message {
+                background: var(--chat-primary-color);
+                color: white;
+            }
+
+            .chat-widget.dark-theme .typing-indicator {
+                background: var(--chat-message-bg);
+                border: 1px solid var(--chat-border-color);
+            }
+
+            .chat-widget.dark-theme .chip {
+                background: var(--chat-message-bg);
+                color: var(--chat-text-color);
+                border: 1px solid var(--chat-border-color);
+            }
+
+            .chat-widget.dark-theme .chip:hover {
+                background: var(--chat-border-color);
+            }
+
             .message {
                 max-width: 80%;
                 padding: 0.8rem 1rem;
@@ -392,6 +1097,14 @@ class EasyChatWidget {
                 gap: 0.5rem;
             }
 
+            /* Chat spacer to ensure new messages and responses are visible */
+            .chat-spacer {
+                height: 20px;
+                min-height: 20px;
+                flex-shrink: 0;
+                pointer-events: none;
+            }
+
             /* Bot Message Styling */
             .bot-message {
                 max-width: 80%;
@@ -402,6 +1115,11 @@ class EasyChatWidget {
                 font-size: 14px;
                 line-height: 1.5;
                 color: #000000;
+                ${this.config.chatBackgroundImage ? `
+                backdrop-filter: blur(2px);
+                background: rgba(240, 242, 245, 0.95);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                ` : ''}
             }
 
             .bot-message img {
@@ -432,6 +1150,11 @@ class EasyChatWidget {
                 color: white;
                 border-top-right-radius: 0;
                 text-align: left;
+                ${this.config.chatBackgroundImage ? `
+                backdrop-filter: blur(2px);
+                background: rgba(var(--chat-primary-color-rgb, 0, 132, 255), 0.95);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                ` : ''}
             }
 
             /* Markdown Content Styles */
@@ -468,11 +1191,203 @@ class EasyChatWidget {
                 padding-left: 12px;
                 color: #666;
             }
+            
+            /* COMPREHENSIVE GREETING WIDTH FIX - Force identical width to other AI responses */
+            #greeting-row {
+                display: flex !important;
+                align-items: flex-start !important;
+                gap: 0.5rem !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            
+            #greeting-row .bot-message-container {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                margin-bottom: 1rem !important;
+                max-width: 80% !important;
+                width: 80% !important;
+                min-width: 60px !important;
+            }
+            
+            #greeting-row .bot-message {
+                max-width: 100% !important;
+                width: 100% !important;
+                min-width: 100% !important;
+                padding: 1rem !important;
+                background: #f0f2f5 !important;
+                border-radius: 1rem !important;
+                border-top-left-radius: 0 !important;
+                font-size: 14px !important;
+                line-height: 1.5 !important;
+                color: #000000 !important;
+                box-sizing: border-box !important;
+            }
+            
+            #greeting-row .message-content {
+                margin-top: 0.5rem !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+            }
+            
+            /* Mobile responsive width for greeting */
+            @media screen and (max-width: 480px) {
+                #greeting-row .bot-message-container {
+                    max-width: 85% !important;
+                    width: 85% !important;
+                }
+                
+                #greeting-row .bot-message {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                }
+            }
+            
+            /* AI Avatar Styling */
+            .bot-message-container {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                margin-bottom: 1rem;
+            }
+            
+            .ai-avatar {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 0.8rem;
+                font-size: 0.9em;
+            }
+            
+            .ai-avatar-icon {
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                background: var(--chat-primary-color, #0084ff);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 16px;
+                color: white;
+                flex-shrink: 0;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                overflow: hidden;
+                position: relative;
+            }
+            
+            /* Enhanced avatar type styles */
+            .ai-avatar-icon.emoji-avatar {
+                background: transparent;
+                font-size: 18px;
+                color: inherit;
+                box-shadow: none;
+            }
+            
+            .ai-avatar-icon.text-avatar {
+                background: var(--chat-primary-color, #0084ff);
+                font-size: 14px;
+                font-weight: 600;
+                color: white;
+            }
+            
+            .ai-avatar-icon.image-avatar {
+                background: transparent;
+                padding: 0;
+            }
+            
+            .ai-avatar-icon.svg-avatar {
+                background: var(--chat-primary-color, #0084ff);
+                padding: 4px;
+            }
+            
+            .ai-avatar-icon img {
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                object-fit: cover;
+                display: block;
+            }
+            
+            .ai-avatar-icon svg {
+                width: 18px;
+                height: 18px;
+                fill: currentColor;
+                color: white;
+            }
+            
+            .ai-avatar-icon.svg-avatar svg {
+                fill: white;
+                color: white;
+            }
+            
+            .ai-name {
+                font-weight: 600;
+                color: var(--chat-primary-color, #0084ff);
+                font-size: 0.9em;
+                line-height: 1.2;
+            }
+            
+            .message-content {
+                margin-top: 0.5rem;
+            }
 
             /* Chat Input Container */
             .chat-input-container {
                 padding: 1rem;
-                border-top: 1px solid #e4e6eb;
+                border-top: 1px solid var(--chat-border-color);
+                background: var(--chat-input-bg);
+            }
+
+            /* Chat Branding */
+            .chat-branding {
+                padding: 0.5rem 1rem;
+                background: var(--chat-input-bg);
+                text-align: center;
+                border-bottom-left-radius: inherit;
+                border-bottom-right-radius: inherit;
+                font-size: 11px;
+                color: #666;
+                opacity: 0.8;
+            }
+
+            .chat-branding a {
+                color: inherit;
+                text-decoration: none;
+                font-size: inherit;
+                font-weight: 400;
+                transition: color 0.2s ease;
+            }
+
+            .chat-branding a:hover {
+                color: var(--chat-primary-color);
+                opacity: 1;
+                text-decoration: none;
+            }
+
+            .chat-branding strong {
+                font-weight: 600;
+                font-size: inherit;
+                color: #333;
+            }
+
+            .chat-widget.dark .chat-branding {
+                color: #a0aec0;
+            }
+
+            .chat-widget.dark .chat-branding a:hover {
+                color: var(--chat-primary-color);
+            }
+
+            .chat-widget.dark .chat-branding strong {
+                color: #e2e8f0;
+                font-size: inherit;
+            }
+
+            .chat-widget.dark .chat-branding a:hover strong {
+                color: var(--chat-primary-color);
             }
 
             /* Suggestion Chips */
@@ -485,7 +1400,7 @@ class EasyChatWidget {
                 -webkit-overflow-scrolling: touch;
                 scroll-behavior: smooth;
                 scrollbar-width: auto;
-                scrollbar-color: #0084ff #f0f2f5;
+                scrollbar-color: var(--chat-primary-color) #f0f2f5;
             }
 
             .suggestion-chips::-webkit-scrollbar {
@@ -498,8 +1413,14 @@ class EasyChatWidget {
             }
 
             .suggestion-chips::-webkit-scrollbar-thumb {
-                background: #0084ff;
+                background: var(--chat-primary-color);
                 border-radius: 3px;
+                transition: background 0.2s ease;
+            }
+
+            .suggestion-chips::-webkit-scrollbar-thumb:hover {
+                background: var(--chat-primary-color);
+                opacity: 0.8;
             }
 
             .chat-input input {
@@ -547,37 +1468,393 @@ class EasyChatWidget {
                 background: #d8dadf;
             }
 
-            /* Chat Input */
+            /* Optimized Chat Input - Desktop */
             .chat-input {
                 display: flex;
-                gap: 0.5rem;
-                margin-top: 12px;
+                gap: 8px;
+                margin-top: 8px;
+                margin-bottom: 0;
+                padding: 0;
+                position: relative;
             }
 
             .chat-input input {
                 flex: 1;
-                padding: 0.8rem 1rem;
-                border: 1px solid #e4e6eb;
-                border-radius: 20px;
+                padding: 12px 16px;
+                border: 1.5px solid #e4e6eb;
+                border-radius: 24px;
                 outline: none;
                 font-size: 14px;
                 background-color: white;
                 cursor: pointer;
+                transition: all 0.25s ease;
+                min-height: 48px;
+                height: 48px;
+                line-height: 1.4;
+                box-sizing: border-box;
+            }
+            
+            .chat-input input:focus {
+                border-color: var(--chat-primary-color);
+                border-width: 2px;
+                box-shadow: 0 0 0 3px rgba(var(--chat-primary-rgb), 0.1);
+                padding: 11px 15px; /* Adjust for thicker border */
             }
 
             .chat-input input.cursor-active {
-                cursor: text;
-                user-select: text;
-                -webkit-user-select: text;
+                cursor: text !important;
+                caret-color: auto !important;
             }
 
             .chat-input input:focus {
-                border-color: #0084ff;
+                cursor: text !important;
+                caret-color: auto !important;
+                outline: none;
             }
 
+            /* Perfect mobile input design with send button inside */
+            @media (max-width: 768px) {
+                .chat-input {
+                    padding: 4px 8px !important;
+                    position: sticky !important;
+                    bottom: 0 !important;
+                    background: var(--chat-input-bg) !important;
+                    border-top: 1px solid #e4e6eb !important;
+                    z-index: 1000 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    /* Minimal design */
+                    min-height: auto !important;
+                    touch-action: manipulation !important;
+                    position: relative !important;
+                    margin: 0 !important;
+                }
+                
+                .chat-input input {
+                    font-size: 16px !important; /* Prevent iOS zoom */
+                    -webkit-user-select: text !important;
+                    user-select: text !important;
+                    -webkit-touch-callout: default !important;
+                    cursor: text !important;
+                    /* Perfect size */
+                    min-height: 48px !important;
+                    height: 48px !important;
+                    line-height: 48px !important;
+                    touch-action: manipulation !important;
+                    -webkit-appearance: none !important;
+                    appearance: none !important;
+                    border-radius: 24px !important;
+                    /* Send button inside - optimized padding for smaller button */
+                    padding: 0 48px 0 18px !important;
+                    border: 1.5px solid #e4e6eb !important;
+                    background: #ffffff !important;
+                    transition: all 0.25s ease !important;
+                    outline: none !important;
+                    z-index: 100 !important;
+                    position: relative !important;
+                    width: 100% !important;
+                    flex: 1 !important;
+                    /* Ensure full clickability */
+                    pointer-events: auto !important;
+                    -webkit-tap-highlight-color: rgba(0,0,0,0.1) !important;
+                    box-sizing: border-box !important;
+                    /* Subtle shadow */
+                    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
+                    margin: 0 !important;
+                }
+                
+                .chat-input input::placeholder {
+                    color: #9ca3af !important;
+                    font-size: 15px !important;
+                    pointer-events: none !important;
+                    user-select: none !important;
+                    -webkit-user-select: none !important;
+                }
+                
+                .chat-input input:focus,
+                .chat-input input.mobile-focused {
+                    border-color: var(--chat-primary-color) !important;
+                    border-width: 2px !important;
+                    box-shadow: 0 0 0 3px rgba(var(--chat-primary-rgb), 0.15) !important;
+                    background: #ffffff !important;
+                    caret-color: var(--chat-primary-color) !important;
+                    transform: none !important;
+                    padding: 0 47px 0 17px !important; /* Adjust for thicker border and smaller button */
+                }
+                
+                .chat-input input:active {
+                    background: #ffffff !important;
+                    border-color: var(--chat-primary-color) !important;
+                }
+                
+                                /* Clean mobile send button - just SVG */
             .send-button {
-                background: var(--chat-primary-color);
-                color: white;
+                    position: absolute !important;
+                    right: 8px !important;
+                    top: 50% !important;
+                    transform: translateY(-50%) !important;
+                    min-width: 32px !important;
+                    min-height: 32px !important;
+                    width: 32px !important;
+                    height: 32px !important;
+                    touch-action: manipulation !important;
+                    border-radius: 0 !important;
+                    margin: 0 !important;
+                    flex-shrink: 0 !important;
+                    -webkit-tap-highlight-color: transparent !important;
+                    z-index: 200 !important;
+                    background: transparent !important;
+                    border: none !important;
+                    cursor: pointer !important;
+                    box-shadow: none !important;
+                    transition: all 0.2s ease !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    padding: 0 !important;
+            }
+
+            .send-button:hover {
+                    transform: translateY(-50%) scale(1.1) !important;
+                    background: transparent !important;
+                }
+                
+                .send-button:active {
+                    transform: translateY(-50%) scale(0.9) !important;
+                    background: transparent !important;
+            }
+
+            .send-button img {
+                    width: 24px !important;
+                    height: 24px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    object-fit: contain !important;
+                    /* Ensure SVG shows with primary color */
+                    filter: none !important;
+                }
+                
+                /* Compact mobile typing indicator */
+                .typing-indicator {
+                    margin: 2px 0 !important;
+                    margin-left: 0 !important;
+                    margin-right: auto !important;
+                    padding: 4px 8px !important;
+                    max-width: 42px !important;
+                    min-width: 36px !important;
+                    height: 24px !important;
+                    border-radius: 12px !important;
+                    border-top-left-radius: 4px !important;
+                }
+                
+                .typing-indicator.active {
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                }
+                
+                .typing-indicator span {
+                    width: 4px !important;
+                    height: 4px !important;
+                    margin: 0 0.5px !important;
+                    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1) !important;
+                }
+                
+                /* Mobile chat window adjustments */
+                .chat-window {
+                    overflow: hidden !important;
+                }
+                
+                .chat-messages {
+                    overflow-y: auto !important;
+                    -webkit-overflow-scrolling: touch !important;
+                    overscroll-behavior: contain !important;
+                }
+            }
+
+
+
+            .send-button {
+                background: var(--chat-primary-color-gradient) !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 50% !important;
+                width: 48px !important;
+                height: 48px !important;
+                cursor: pointer !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.25s ease !important;
+                margin: 0 !important;
+                min-width: 48px !important;
+                min-height: 48px !important;
+                flex-shrink: 0 !important;
+                box-shadow: 0 1px 4px rgba(var(--chat-primary-color-rgb), 0.25) !important;
+            }
+
+            .send-button:hover {
+                background: var(--chat-primary-color-gradient) !important;
+                transform: scale(1.02) !important;
+                box-shadow: 0 2px 8px rgba(var(--chat-primary-color-rgb), 0.35) !important;
+            }
+
+            .send-button:active {
+                transform: scale(0.98) !important;
+            }
+
+            .send-button img {
+                width: var(--send-button-icon-size, ${this.config.sendButtonIconSize}px) !important;
+                height: var(--send-button-icon-size, ${this.config.sendButtonIconSize}px) !important;
+                min-width: var(--send-button-icon-size, ${this.config.sendButtonIconSize}px) !important;
+                min-height: var(--send-button-icon-size, ${this.config.sendButtonIconSize}px) !important;
+                max-width: var(--send-button-icon-size, ${this.config.sendButtonIconSize}px) !important;
+                max-height: var(--send-button-icon-size, ${this.config.sendButtonIconSize}px) !important;
+                object-fit: contain !important;
+                display: block !important;
+                flex-shrink: 0 !important;
+                filter: brightness(0) invert(1) !important;
+            }
+
+            /* Perfect centered typing indicator */
+            .typing-indicator {
+                display: none;
+                padding: 6px 10px;
+                background: var(--chat-bot-message-bg);
+                border-radius: 14px;
+                border-top-left-radius: 4px;
+                align-self: flex-start;
+                margin: 4px 0;
+                margin-left: 0;
+                margin-right: auto;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+                border: 1px solid #e4e6eb;
+                position: relative;
+                overflow: visible;
+                max-width: 50px;
+                min-width: 42px;
+                width: fit-content;
+                height: 28px;
+                /* Flexbox for perfect centering */
+                align-items: center;
+                justify-content: center;
+                animation: fadeInUp 0.3s ease-out;
+            }
+            
+            .typing-indicator.active {
+                display: flex !important;
+            }
+
+            .typing-indicator::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+                animation: shimmer 2.5s infinite;
+                border-radius: 20px;
+            }
+
+            .typing-indicator span {
+                width: 5px;
+                height: 5px;
+                background: var(--typing-dot-color, #666);
+                display: inline-block;
+                border-radius: 50%;
+                margin: 0 1px;
+                position: relative;
+                animation: typingPulse 1.2s infinite ease-in-out;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+                z-index: 1;
+            }
+
+            .typing-indicator span:nth-child(1) { 
+                animation-delay: 0s; 
+                background: var(--typing-dot-color, #666);
+            }
+            .typing-indicator span:nth-child(2) { 
+                animation-delay: 0.3s; 
+                background: var(--typing-dot-color, #666);
+            }
+            .typing-indicator span:nth-child(3) { 
+                animation-delay: 0.6s;
+                background: var(--typing-dot-color, #666);
+            }
+
+            @keyframes typingPulse {
+                0%, 60%, 100% { 
+                    transform: scale(0.7);
+                    opacity: 0.4;
+                }
+                30% { 
+                    transform: scale(1.4);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(15px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            @keyframes shimmer {
+                0% { left: -100%; }
+                100% { left: 100%; }
+            }
+
+            /* Enhanced typing indicator for dark theme */
+            .chat-widget.dark .typing-indicator {
+                background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            }
+
+            .chat-widget.dark .typing-indicator span {
+                background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+            }
+
+            .chat-widget.dark .typing-indicator span:nth-child(1) { 
+                background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            }
+            .chat-widget.dark .typing-indicator span:nth-child(2) { 
+                background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            }
+            .chat-widget.dark .typing-indicator span:nth-child(3) { 
+                background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+            }
+
+            /* Typing Text Styles (only when showTypingText is true) */
+            .typing-text {
+                font-size: 11px;
+                color: #6c757d;
+                margin-top: 4px;
+                text-align: center;
+                font-weight: 400;
+                opacity: 0.7;
+                animation: pulse 2s infinite;
+            }
+
+            @keyframes pulse {
+                0%, 100% { opacity: 0.6; }
+                50% { opacity: 1; }
+            }
+
+            .chat-widget.dark .typing-text {
+                color: #a0aec0;
+            }
+
+            /* File Upload Styles */
+            .file-button {
+                background: none;
                 border: none;
                 border-radius: 50%;
                 width: 40px;
@@ -586,46 +1863,97 @@ class EasyChatWidget {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                transition: background 0.2s;
-                margin-top: 3px;
+                transition: all 0.2s ease;
+                margin-right: 8px;
             }
 
-            .send-button:hover {
-                background: var(--chat-primary-color);
-                opacity: 0.9;
+            .file-button:hover {
+                background: rgba(0, 0, 0, 0.05);
+                transform: scale(1.05);
             }
 
-            .send-button img {
+            .file-button img {
                 width: 20px;
                 height: 20px;
+                opacity: 0.7;
+                transition: opacity 0.2s ease;
             }
 
-            /* Loading Animation */
-            .typing-indicator {
-                display: none;
-                padding: 0.5rem 1rem;
-                background: #f0f2f5;
-                border-radius: 1rem;
-                align-self: flex-start;
-                margin: 0.5rem 0;
+            .file-button:hover img {
+                opacity: 1;
             }
 
-            .typing-indicator span {
-                width: 8px;
-                height: 8px;
-                background: #90949c;
-                display: inline-block;
-                border-radius: 50%;
-                margin: 0 2px;
-                animation: bounce 1.4s infinite ease-in-out;
+            .file-preview {
+                margin-top: 8px;
+                padding: 8px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border: 1px solid #e9ecef;
             }
 
-            .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-            .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+            .file-preview-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 4px 8px;
+                margin: 2px 0;
+                background: white;
+                border-radius: 4px;
+                border: 1px solid #dee2e6;
+            }
 
-            @keyframes bounce {
-                0%, 80%, 100% { transform: scale(0); }
-                40% { transform: scale(1); }
+            .file-preview-item .file-info {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex: 1;
+            }
+
+            .file-preview-item .file-name {
+                font-size: 12px;
+                color: #495057;
+                max-width: 150px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .file-preview-item .file-size {
+                font-size: 10px;
+                color: #6c757d;
+            }
+
+            .file-preview-item .remove-file {
+                background: none;
+                border: none;
+                color: #dc3545;
+                cursor: pointer;
+                padding: 2px;
+                border-radius: 2px;
+                font-size: 12px;
+            }
+
+            .file-preview-item .remove-file:hover {
+                background: #dc3545;
+                color: white;
+            }
+
+            .chat-widget.dark .file-preview {
+                background: #2d3748;
+                border-color: #4a5568;
+            }
+
+            .chat-widget.dark .file-preview-item {
+                background: #1a202c;
+                border-color: #4a5568;
+            }
+
+            .chat-widget.dark .file-preview-item .file-name {
+                color: #e2e8f0;
+            }
+
+            .chat-widget.dark .file-preview-item .file-size {
+                color: #a0aec0;
             }
 
             /* Output Styles */
@@ -677,12 +2005,7 @@ class EasyChatWidget {
                 border-color: var(--chat-input-border);
             }
 
-            /* Initial greeting message style */
-            .greeting-message {
-                background: #e3f2fd !important;
-                border-left: 3px solid var(--chat-primary-color);
-                color: #000000 !important;
-            }
+            /* Initial greeting message style - removed to match other AI responses */
 
             /* Responsive Design */
             /* Mobile Portrait */
@@ -724,18 +2047,56 @@ class EasyChatWidget {
 
             
                 .chat-window {
-                bottom: 0;
-                right: 0;
-                left: 0;
-                width: 100%;
-                height: 100vh;
-                border-radius: 0;
-                max-height: calc(100vh - env(safe-area-inset-bottom));
+                    position: fixed !important;
+                    bottom: 0 !important;
+                    right: 0 !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: 100% !important;
+                    height: 100vh !important;
+                    border-radius: 0 !important;
+                    max-height: calc(100vh - env(safe-area-inset-bottom)) !important;
+                    transform: translateY(100%) !important;
+                    transition: transform 0.3s ease-in-out !important;
+                    z-index: 2147483649 !important;
+                }
+
+                .chat-window.active {
+                    transform: translateY(0) !important;
                 }
             
                 .chat-toggle {
-                bottom: 10px;
-                right: 10px;
+                    position: fixed !important;
+                    bottom: 20px !important;
+                    right: 20px !important;
+                    z-index: 2147483650 !important;
+                    transform: none !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    visibility: visible !important;
+                }
+
+                .chat-toggle img {
+                    width: 24px !important;
+                    height: 24px !important;
+                    display: block !important;
+                    margin: 0 auto !important;
+                }
+
+                .chat-toggle span {
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    font-size: 24px !important;
+                    line-height: 1 !important;
+                }
+
+                /* Hide toggle when chat is active on mobile */
+                .chat-widget .chat-window.active ~ .chat-toggle {
+                    display: none !important;
                 }
             
                 .chat-header {
@@ -749,6 +2110,7 @@ class EasyChatWidget {
                 .chat-input-container {
                 padding: 0.8rem;
                 padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
+                border-top: none;
                 }
             
                 .message {
@@ -820,6 +2182,7 @@ class EasyChatWidget {
             
                 .chat-input-container {
                 padding: 0.5rem;
+                border-top: none;
                 }
                 .chat-input input {
                     -webkit-user-select: none; /* For Safari */
@@ -890,8 +2253,19 @@ class EasyChatWidget {
                 }
                 
                 .send-button {
-                width: 48px;
-                height: 48px;
+                width: 48px !important;
+                height: 48px !important;
+                min-width: 48px !important;
+                min-height: 48px !important;
+                }
+                
+                .send-button img {
+                width: ${Math.round(this.config.sendButtonIconSize * 1.17)}px !important;
+                height: ${Math.round(this.config.sendButtonIconSize * 1.17)}px !important;
+                min-width: ${Math.round(this.config.sendButtonIconSize * 1.17)}px !important;
+                min-height: ${Math.round(this.config.sendButtonIconSize * 1.17)}px !important;
+                max-width: ${Math.round(this.config.sendButtonIconSize * 1.17)}px !important;
+                max-height: ${Math.round(this.config.sendButtonIconSize * 1.17)}px !important;
                 }
                 
                 .chat-header {
@@ -916,8 +2290,19 @@ class EasyChatWidget {
                 }
                 
                 .send-button {
-                width: 52px;
-                height: 52px;
+                width: 52px !important;
+                height: 52px !important;
+                min-width: 52px !important;
+                min-height: 52px !important;
+                }
+                
+                .send-button img {
+                width: ${Math.round(this.config.sendButtonIconSize * 1.25)}px !important;
+                height: ${Math.round(this.config.sendButtonIconSize * 1.25)}px !important;
+                min-width: ${Math.round(this.config.sendButtonIconSize * 1.25)}px !important;
+                min-height: ${Math.round(this.config.sendButtonIconSize * 1.25)}px !important;
+                max-width: ${Math.round(this.config.sendButtonIconSize * 1.25)}px !important;
+                max-height: ${Math.round(this.config.sendButtonIconSize * 1.25)}px !important;
                 }
                 
                 .chat-header {
@@ -1339,13 +2724,27 @@ class EasyChatWidget {
             }
 
             .message-action-btn.active {
-                background: var(--chat-primary-color);
-                border-color: var(--chat-primary-color);
+                background: var(--chat-primary-color) !important;
+                border-color: var(--chat-primary-color) !important;
+                color: white !important;
             }
 
             .message-action-btn.active img {
                 opacity: 1;
                 filter: brightness(0) invert(1);
+            }
+            
+            /* Specific styling for copy button when active/copied */
+            .copy-btn.active,
+            .copy-btn.copied {
+                background: var(--chat-primary-color) !important;
+                border-color: var(--chat-primary-color) !important;
+                color: white !important;
+            }
+            
+            .copy-btn.active img,
+            .copy-btn.copied img {
+                filter: brightness(0) invert(1) !important;
             }
 
             /* Copied tooltip */
@@ -1361,6 +2760,16 @@ class EasyChatWidget {
                 border-radius: 4px;
                 font-size: 12px;
                 pointer-events: none;
+            }
+
+            /* Greeting actions specific styles */
+            .greeting-actions {
+                transition: opacity 0.3s ease, transform 0.3s ease;
+            }
+
+            .greeting-actions.hiding {
+                opacity: 0;
+                transform: translateY(-5px);
             }
 
             /* Add powered by link styles */
@@ -1388,32 +2797,32 @@ class EasyChatWidget {
                 z-index: 2147483647;
             }
 
-            /* Position-specific styles for toggle and window */
+            /* Position-specific styles for toggle and window with advanced spacing */
             .chat-widget.bottom-right .chat-toggle {
-                bottom: 20px;
-                right: 20px;
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing));
+                right: var(--chat-toggle-right-margin);
             }
             .chat-widget.bottom-right .chat-window {
-                bottom: 100px;
-                right: 20px;
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing) + var(--chat-toggle-size) + 20px);
+                right: var(--chat-toggle-right-margin);
             }
 
             .chat-widget.bottom-left .chat-toggle {
-                bottom: 20px;
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing));
                 left: 20px;
             }
             .chat-widget.bottom-left .chat-window {
-                bottom: 100px;
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing) + var(--chat-toggle-size) + 20px);
                 left: 20px;
             }
 
             .chat-widget.bottom-center .chat-toggle {
-                bottom: 20px;
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing));
                 left: 50%;
                 transform: translateX(-50%)
             }
             .chat-widget.bottom-center .chat-window {
-                bottom: 100px;
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing) + var(--chat-toggle-size) + 20px);
                 left: 50%;
                 transform: translateX(-50%)
             }
@@ -1469,17 +2878,197 @@ class EasyChatWidget {
                 left: 20px;
             }
 
+            /* Position-specific styles for text box - positioned close to toggle button */
+            .chat-widget.bottom-right .chat-text-box {
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing) + var(--chat-toggle-size) + var(--text-box-spacing-from-toggle));
+                right: var(--chat-toggle-right-margin);
+                left: auto;
+                transform: none;
+                max-width: min(280px, calc(100vw - 40px));
+            }
+
+            .chat-widget.bottom-left .chat-text-box {
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing) + var(--chat-toggle-size) + var(--text-box-spacing-from-toggle));
+                left: 20px;
+                right: auto;
+                transform: none;
+                max-width: min(280px, calc(100vw - 40px));
+            }
+
+            .chat-widget.bottom-center .chat-text-box {
+                bottom: calc(var(--chat-toggle-bottom-margin) + var(--website-bottom-spacing) + var(--chat-toggle-size) + var(--text-box-spacing-from-toggle));
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                max-width: min(280px, calc(100vw - 40px));
+            }
+
+            .chat-widget.top .chat-text-box {
+                top: 90px;
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                max-width: min(280px, calc(100vw - 40px));
+            }
+
+            .chat-widget.left .chat-text-box {
+                left: 90px;
+                right: auto;
+                top: 50%;
+                transform: translateY(-50%);
+                max-width: min(280px, calc(100vw - 130px)); /* Account for left positioning */
+            }
+
+            .chat-widget.right .chat-text-box {
+                right: 20px;
+                left: auto;
+                top: 50%;
+                transform: translateY(-50%);
+                max-width: min(280px, calc(100vw - 40px));
+            }
+
+            .chat-widget.top-right .chat-text-box {
+                top: 90px;
+                right: 20px;
+                left: auto;
+                transform: none;
+                max-width: min(280px, calc(100vw - 40px));
+            }
+
+            .chat-widget.top-left .chat-text-box {
+                top: 90px;
+                left: 20px;
+                right: auto;
+                transform: none;
+                max-width: min(280px, calc(100vw - 40px));
+            }
+
             /* Mobile adjustments */
             @media screen and (max-width: 480px) {
                 .chat-widget .chat-window {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
                     width: 100% !important;
                     height: 100% !important;
+                    border-radius: 0 !important;
+                    transform: translateY(100%) !important;
+                    transition: transform 0.3s ease-in-out !important;
+                }
+
+                .chat-widget .chat-window.active {
+                    transform: translateY(0) !important;
+                }
+
+                .chat-toggle {
+                    position: fixed !important;
+                    bottom: 20px !important;
+                    right: 20px !important;
+                    z-index: 2147483650 !important;
                     transform: none !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    visibility: visible !important;
+                }
+
+                .chat-toggle img {
+                    width: 24px !important;
+                    height: 24px !important;
+                    display: block !important;
+                    margin: 0 auto !important;
+                }
+
+                .chat-toggle span {
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    font-size: 24px !important;
+                    line-height: 1 !important;
+                }
+
+                .chat-widget.left .chat-toggle {
+                    left: 20px !important;
+                    right: auto !important;
+                }
+
+                /* Hide toggle when chat is active on mobile */
+                .chat-widget .chat-window.active ~ .chat-toggle {
+                    display: none !important;
+                }
+
+                .chat-text-box {
+                    max-width: calc(100vw - 30px) !important;
+                    margin-left: 15px !important;
+                    margin-right: 15px !important;
+                    font-size: 14px !important;
+                }
+
+                .chat-text-box-content {
+                    padding: 12px !important;
+                }
+
+                .chat-text-box-message {
+                    font-size: 14px !important;
+                    padding-right: 30px !important;
+                }
+
+                .chat-text-box-submessage {
+                    font-size: 13px !important;
+                }
+
+                /* Mobile-specific positioning for text box */
+                .chat-widget.bottom-right .chat-text-box,
+                .chat-widget.bottom-left .chat-text-box,
+                .chat-widget.bottom-center .chat-text-box {
+                    right: 15px !important;
+                    left: auto !important;
+                    transform: none !important;
+                    max-width: calc(100vw - 30px) !important;
+                }
+            }
+
+            /* Tablet and large mobile adjustments */
+            @media screen and (max-width: 768px) and (min-width: 481px) {
+                .chat-text-box {
+                    max-width: min(300px, calc(100vw - 60px)) !important;
+                    margin-left: 30px !important;
+                    margin-right: 30px !important;
+                }
+
+                .chat-widget.bottom-right .chat-text-box,
+                .chat-widget.top-right .chat-text-box {
+                    right: 30px !important;
+                }
+
+                .chat-widget.bottom-left .chat-text-box,
+                .chat-widget.top-left .chat-text-box {
+                    left: 30px !important;
+                }
+            }
+
+            /* Ensure text box never goes beyond viewport bounds */
+            @media screen and (max-width: 320px) {
+                .chat-text-box {
+                    max-width: calc(100vw - 20px) !important;
+                    margin-left: 10px !important;
+                    margin-right: 10px !important;
+                }
+
+                .chat-text-box-content {
+                    padding: 10px !important;
+                }
+
+                .chat-text-box-message {
+                    font-size: 13px !important;
+                }
+
+                .chat-text-box-submessage {
+                    font-size: 12px !important;
                 }
             }
 
@@ -1511,11 +3100,61 @@ class EasyChatWidget {
             .map(([key, value]) => `${key}: ${value};`)
             .join(' ');
         
+        // Generate send button icon
+        const generateSendIcon = () => {
+            return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z'/%3E%3C/svg%3E`;
+        };
+
+        const generateToggleIcon = () => {
+            if (!this.config.toggleButtonIcon) {
+                // Default chat bubble icon
+                return `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'/%3E%3C/svg%3E" alt="Chat">`;
+            }
+            
+            const icon = this.config.toggleButtonIcon;
+            
+            // Check if it's an emoji
+            if (icon.length <= 4 && /\p{Emoji}/u.test(icon)) {
+                return `<span style="font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center;">${icon}</span>`;
+            }
+            
+            // Check if it's an image URL
+            if (icon.startsWith('http') || icon.startsWith('data:image') || icon.startsWith('/')) {
+                return `<img src="${icon}" alt="Chat" style="width: 24px; height: 24px; object-fit: contain;">`;
+            }
+            
+            // Check if it's an SVG (starts with <svg)
+            if (icon.trim().startsWith('<svg')) {
+                return icon;
+            }
+            
+            // Default fallback
+            return `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'/%3E%3C/svg%3E" alt="Chat">`;
+        };
+        
         const toggleButtonHtml = `
             <div class="chat-toggle" style="position: fixed; ${toggleStyle}">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'/%3E%3C/svg%3E" alt="Chat">
+                ${generateToggleIcon()}
             </div>
         `;
+
+        // Create text box HTML (floating message above toggle button)
+        const textBoxHtml = this.config.showTextBox ? `
+            <div class="chat-text-box" style="position: fixed;">
+                <div class="chat-text-box-content">
+                    ${this.config.showTextBoxCloseButton ? `
+                        <button class="chat-text-box-close">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                            </svg>
+                        </button>
+                    ` : ''}
+                    <div class="chat-text-box-message" ${this.config.textBoxTextColor === 'primary' && this.isGradient(this.config.primaryColor) ? 'data-gradient="true"' : ''}>${this.config.textBoxMessage}</div>
+                    <div class="chat-text-box-separator"></div>
+                    <div class="chat-text-box-submessage" ${this.config.textBoxTextColor === 'primary' && this.isGradient(this.config.primaryColor) ? 'data-gradient="true"' : ''}>${this.config.textBoxSubMessage}</div>
+                </div>
+            </div>
+        ` : '';
 
         // Create chat window with explicit positioning
         const windowStyle = Object.entries(positionStyle.window)
@@ -1529,12 +3168,17 @@ class EasyChatWidget {
                         <div class="chat-header-avatar">
                             <img src="${this.config.botImage}" alt="${this.config.botName}" class="bot-avatar">
                         </div>
-                        <h2 style="font-weight: bold; font-size: 20px;">${this.config.botName}</h2>
+                        <div class="chat-header-text">
+                            <h2 style="font-weight: bold; font-size: 20px; margin: 0;">${this.config.botName}</h2>
+                            ${this.config.showBotSubname && this.config.botSubname ? `<div class="chat-header-subname">${this.config.botSubname}</div>` : ''}
+                        </div>
                     </div>
                     <div class="chat-header-actions">
+                        ${this.config.enableDeleteButton ? `
                         <button class="erase-chat">
                             <img src="https://i.ibb.co.com/9YP3swm/erase.png" alt="Erase" title="Clear chat history">
                         </button>
+                        ` : ''}
                         <button class="close-chat">
                             <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E" alt="Close" title="Close chat">
                         </button>
@@ -1548,8 +3192,10 @@ class EasyChatWidget {
                         </div>
                     </div>
                     <div class="typing-indicator">
-                        <span>●</span><span>●</span><span>●</span>
+                        <span></span><span></span><span></span>
+                        ${this.config.showTypingText ? '<div class="typing-text">AI is thinking...</div>' : ''}
                     </div>
+                    <div class="chat-spacer"></div>
                 </div>
 
                 ${this.config.chips.length > 0 ? `
@@ -1563,18 +3209,27 @@ class EasyChatWidget {
                 <div class="chat-input-container">
                     <div class="chat-input">
                         <input type="text" placeholder="${this.config.placeholder}" aria-label="Chat input">
+                        ${this.config.enableFileUpload ? `
+                        <input type="file" class="file-input" multiple accept="image/*,.pdf,.doc,.docx,.txt" style="display: none;">
+                        <button class="file-button" title="Attach files">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z'/%3E%3C/svg%3E" alt="Attach">
+                        </button>
+                        ` : ''}
                         <button class="send-button">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z'/%3E%3C/svg%3E" alt="Send">
+                            <img src="${generateSendIcon()}" alt="Send">
                         </button>
                     </div>
+                    ${this.config.enableFileUpload ? '<div class="file-preview" style="display: none;"></div>' : ''}
                 </div>
-                <!--<div class="powered-by">
-                   Powered by <a href="https://neurobrains.co" target="_blank">NeuroBrain</a>
-                </div> -->
+                ${this.config.showBranding ? `
+                    <div class="chat-branding">
+                        Powered by <a href="${this.config.brandingUrl}" target="_blank" rel="noopener noreferrer"><strong>${this.config.brandingText.replace(/^Powered by\s*/i, '')}</strong></a>
+                    </div>
+                ` : ''}
             </div>
         `;
 
-        widget.innerHTML = toggleButtonHtml + chatWindowHtml;
+        widget.innerHTML = textBoxHtml + toggleButtonHtml + chatWindowHtml;
         document.body.appendChild(widget);
         this.widget = widget;
     }
@@ -1583,6 +3238,30 @@ class EasyChatWidget {
         this.setupSuggestionChips();
         this.setupResponsiveHandling();
         this.setupScrollContainment();
+        
+        // Ensure greeting message is properly created with avatar
+        setTimeout(() => {
+            this.ensureGreetingMessageWithAvatar();
+        }, 200); // Increased delay to ensure responsive styles are applied
+        
+        // Ensure send button icon size is properly applied
+        setTimeout(() => {
+            this.ensureSendButtonIconSize();
+        }, 300); // Delay to ensure all styles are loaded
+        
+        // Apply toggle button animation
+        setTimeout(() => {
+            this.applyToggleButtonAnimation();
+        }, 100);
+        
+        // Setup text box close functionality
+        setTimeout(() => {
+            this.setupTextBoxEventListeners();
+        }, 100);
+        
+        // Setup click outside to close functionality
+        this.setupClickOutsideToClose();
+        
         console.log("Chat widget initialized.");
     }
     
@@ -1594,68 +3273,65 @@ class EasyChatWidget {
         const chatMessages = this.widget.querySelector('.chat-messages');
         const chatInput = this.widget.querySelector('.chat-input input');
         const sendButton = this.widget.querySelector('.send-button');
+        const fileButton = this.widget.querySelector('.file-button');
+        const fileInput = this.widget.querySelector('.file-input');
+        const filePreview = this.widget.querySelector('.file-preview');
         const typingIndicator = this.widget.querySelector('.typing-indicator');
         
-        // Helper function to update toggle icon
-        const updateToggleIcon = (isOpen) => {
-            chatToggle.innerHTML = isOpen 
-                ? `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z'/%3E%3C/svg%3E" alt="Close">`
-                : `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'/%3E%3C/svg%3E" alt="Chat">`;
-        };
-
-        // Toggle button click handler
-        chatToggle.addEventListener('click', () => {
-            const isActive = chatWindow.classList.contains('active');
-            
-            if (isActive) {
-                chatWindow.classList.remove('active');
-                updateToggleIcon(false);
-                setTimeout(() => {
-                    chatWindow.style.display = 'none';
-                }, 300);
-            } else {
-                chatWindow.style.display = 'flex';
-                updateToggleIcon(true);
-                requestAnimationFrame(() => {
-                    chatWindow.classList.add('active');
-                    // Enhanced mobile input focus
-                    if (window.innerWidth <= 480) {
-                        setTimeout(() => {
-                            chatInput.click();
-                            // Remove readonly attribute
-                            chatInput.removeAttribute('readonly');
-                            // Trigger click event
-                            const clickEvent = new MouseEvent('click', {
-                                view: window,
-                                bubbles: true,
-                                cancelable: true
-                            });
-                            chatInput.dispatchEvent(clickEvent);
-                            
-                            // For iOS devices
-                            if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                                //pass
-                            }
-                        }, 500); // Increased delay for better reliability
-                    }
-                });
+        // File upload handling - only if enabled
+        let selectedFiles = [];
+        
+        if (this.config.enableFileUpload && fileButton && fileInput && filePreview) {
+        fileButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            selectedFiles = selectedFiles.concat(files);
+            this.updateFilePreview(selectedFiles, filePreview);
+        });
+        
+        // Remove file from preview
+        filePreview.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-file')) {
+                const index = parseInt(e.target.dataset.index);
+                selectedFiles.splice(index, 1);
+                this.updateFilePreview(selectedFiles, filePreview);
             }
         });
+        }
 
-        // Close button handler
+
+        // Toggle button click handler - clean and safe
+        chatToggle.addEventListener('click', () => {
+            this.toggleChat();
+        });
+
+        // Close button handler - clean and safe
         closeChat.addEventListener('click', () => {
-            chatWindow.classList.remove('active');
-            updateToggleIcon(false);
-            setTimeout(() => {
-                chatWindow.style.display = 'none';
-            }, 300);
+            this.closeChat();
         });
 
         // Send message handlers with enhanced checks
         const sendMessageHandler = () => {
             const message = chatInput.value.trim();
-            if (message && !this.isWaitingForResponse && !this.isTypewriterActive) {
-                this.sendMessage(message);
+            if ((message || selectedFiles.length > 0) && !this.isWaitingForResponse && !this.isTypewriterActive) {
+                // Clear input immediately after sending
+                chatInput.value = '';
+                
+                if (this.config.enableFileUpload && selectedFiles.length > 0) {
+                    this.sendMessageWithFiles(message, selectedFiles);
+                    selectedFiles = [];
+                    if (filePreview) {
+                    this.updateFilePreview(selectedFiles, filePreview);
+                    }
+                    if (fileInput) {
+                    fileInput.value = '';
+                    }
+                } else {
+                    this.sendMessage(message);
+                }
             }
         };
 
@@ -1668,55 +3344,50 @@ class EasyChatWidget {
             }
         });
 
+        // Handle Enter key for file uploads too
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessageHandler();
+            }
+        });
+
         // Add input validation and visual feedback
         chatInput.addEventListener('input', () => {
-            const isEmpty = !chatInput.value.trim();
+            const isEmpty = !chatInput.value.trim() && (!this.config.enableFileUpload || selectedFiles.length === 0);
             const isDisabled = this.isWaitingForResponse || this.isTypewriterActive;
             sendButton.disabled = isEmpty || isDisabled;
             sendButton.style.opacity = sendButton.disabled ? '0.5' : '1';
         });
 
-        // Outside click handler
+            // 🚀 Enhanced input handling for both mobile and desktop
+        if (this.isMobileBrowser() && this.config.enableEnhancedMobileInput) {
+            this.setupCleanMobileInput(chatInput);
+        } else {
+            // Desktop input handling - ensure cursor is always visible
+            this.setupDesktopInput(chatInput);
+        }
+
+        // Outside click handler - improved to not interfere with website scrolling
         document.addEventListener('click', (e) => {
             if (!chatWindow.contains(e.target) && !chatToggle.contains(e.target)) {
                 if (chatWindow.classList.contains('active')) {
-                    chatWindow.classList.remove('active');
-                    updateToggleIcon(false);
-                    setTimeout(() => {
-                        chatWindow.style.display = 'none';
-                    }, 300);
+                    // Don't close on outside click to prevent interference with website
+                    // Only close via the close button or toggle button
                 }
             }
         });
 
-        // Prevent chat window from closing when clicking inside
+        // Prevent chat window from closing when clicking inside - simplified
         chatWindow.addEventListener('click', (e) => {
             e.stopPropagation();
         });
 
-        // Mobile-specific handlers
+        // Mobile scroll handling - minimal and non-intrusive
         if ('ontouchstart' in window) {
-            let touchStartY = 0;
-            let touchEndY = 0;
-
-            chatMessages.addEventListener('touchstart', (e) => {
-                touchStartY = e.touches[0].clientY;
-            });
-
-            chatMessages.addEventListener('touchmove', (e) => {
-                touchEndY = e.touches[0].clientY;
-                const scrollTop = chatMessages.scrollTop;
-                const scrollHeight = chatMessages.scrollHeight;
-                const clientHeight = chatMessages.clientHeight;
-
-                if (scrollTop === 0 && touchEndY > touchStartY) {
-                    e.preventDefault();
-                }
-
-                if (scrollTop + clientHeight >= scrollHeight && touchEndY < touchStartY) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
+            // Allow normal touch scrolling without interference
+            chatMessages.style.webkitOverflowScrolling = 'touch';
+            chatMessages.style.overscrollBehavior = 'contain';
         }
 
         // Responsive handlers
@@ -1765,12 +3436,12 @@ class EasyChatWidget {
         `;
         document.head.appendChild(style);
 
-    // Add mobile input handling
+    // Add mobile input handling - improved cursor management
     if (window.innerWidth <= 480) {
         const chatInput = this.widget.querySelector('.chat-input input');
         const inputContainer = this.widget.querySelector('.chat-input');
 
-        // Function to activate cursor (now requires explicit action)
+        // Function to activate cursor only when input is focused
         const activateCursor = () => {
             if (!this.isWaitingForResponse && !this.isTypewriterActive) {
                 chatInput.classList.add('cursor-active');
@@ -1870,32 +3541,40 @@ class EasyChatWidget {
         this.isTypewriterActive = true;
         this.disableSendingFunctionality();
 
-        // Track user scroll interaction within chat container only
+        // Enhanced mobile-compatible scroll tracking
         let userScrolled = false;
         let lastScrollTop = 0;
         const chatMessages = this.widget.querySelector('.chat-messages');
         
-        // Add scroll listener to chat messages container only
+        // Mobile-friendly scroll handler with debouncing
         const scrollHandler = () => {
+            // Don't interrupt typewriter on mobile for auto-scroll
+            if (this.isMobileBrowser()) {
+                // Allow auto-scrolling during typewriter on mobile
+                return;
+            }
+            
             if (chatMessages.scrollTop < lastScrollTop) {
                 userScrolled = true;
             }
             lastScrollTop = chatMessages.scrollTop;
         };
+        
+        // Add scroll listener only for desktop
+        if (!this.isMobileBrowser()) {
         chatMessages.addEventListener('scroll', scrollHandler);
-
-        // Enhanced scroll to bottom function that only affects chat container
-        function scrollToBottom() {
-            if (userScrolled) return; // Don't scroll if user has scrolled up
-
-            // Calculate if we're near the bottom of the chat container
-            const isNearBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 100;
-            
-            if (isNearBottom) {
-                // Scroll only the chat messages container
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
         }
+
+        // Enhanced scroll to bottom function with smooth animation
+        const scrollToBottom = () => {
+            // Check typewritewithscroll configuration
+            if (this.config.typewritewithscroll || !this.isTypewriterActive) {
+                chatMessages.scrollTo({
+                    top: chatMessages.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        };
 
         // Tokenize content while preserving markdown and HTML
         function tokenizeContent(text) {
@@ -1957,12 +3636,21 @@ class EasyChatWidget {
         const tokens = tokenizeContent(text);
         let tokenIndex = 0;
 
-        // Type next token with contained scrolling
-        function typeNextToken() {
+        // Initial scroll will be handled after typewriter completes
+
+        // Type next token with enhanced mobile support
+        const typeNextToken = () => {
             if (tokenIndex >= tokens.length) {
+                // Clean up scroll listener only if it was added
+                if (!this.isMobileBrowser()) {
                 chatMessages.removeEventListener('scroll', scrollHandler);
+                }
+                
                 this.isTypewriterActive = false;
                 this.enableSendingFunctionality();
+                
+                // No automatic scroll after typewriter completion
+                
                 if (callback) callback();
                 return;
             }
@@ -1974,13 +3662,10 @@ class EasyChatWidget {
             currentText += token;
             element.innerHTML = currentText;
             
-            // Prevent page scroll by stopping event propagation
-            requestAnimationFrame(() => {
+            // Scroll during typewriter if enabled
+            if (this.config.typewritewithscroll) {
                 scrollToBottom();
-                // Prevent any scroll events from bubbling up
-                event?.preventDefault?.();
-                event?.stopPropagation?.();
-            });
+            }
             
             tokenIndex++;
 
@@ -1996,13 +3681,26 @@ class EasyChatWidget {
                 delay = Math.random() * 40 + 30;  // 30-70ms delay
             }
 
-            setTimeout(typeNextToken, delay);
-        }
+            // Use requestAnimationFrame for better mobile performance
+            if (delay === 0) {
+                requestAnimationFrame(typeNextToken);
+            } else {
+                setTimeout(() => {
+                    try {
+                        typeNextToken();
+                    } catch (error) {
+                        console.error('Typewriter error:', error);
+                        // Fallback: complete the animation
+                        element.innerHTML = text;
+                        this.isTypewriterActive = false;
+                        this.enableSendingFunctionality();
+                        if (callback) callback();
+                    }
+                }, delay);
+            }
+        };
 
-        // Bind 'this' context to typeNextToken
-        typeNextToken = typeNextToken.bind(this);
-
-        // Start typing
+        // Start typing animation
         typeNextToken();
     }
 
@@ -2054,76 +3752,91 @@ class EasyChatWidget {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
             
-            // Create actions container but don't show it until typewriter is done
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'message-actions';
-            actionsDiv.style.display = 'none'; // Hide initially
-            actionsDiv.innerHTML = `
-                <button class="message-action-btn copy-btn" title="Copy to clipboard">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">
-                </button>
-                <button class="message-action-btn like-btn" title="Helpful">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z'/%3E%3C/svg%3E" alt="Like">
-                </button>
-                <button class="message-action-btn dislike-btn" title="Not helpful">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z'/%3E%3C/svg%3E" alt="Dislike">
-                </button>
-                <button class="message-action-btn regenerate-btn" title="Regenerate response">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z'/%3E%3C/svg%3E" alt="Regenerate">
-                </button>
-            `;
+            // Add AI avatar and name inside the message bubble - always show for bot messages
+            const avatarHtml = this.generateAiAvatar();
+            messageDiv.innerHTML = avatarHtml;
+            
+            // Create actions container only if message actions are enabled
+            let actionsDiv = null;
+            if (this.config.showMessageActions) {
+                actionsDiv = document.createElement('div');
+                actionsDiv.className = 'message-actions';
+                actionsDiv.style.display = 'none'; // Hide initially
+                actionsDiv.innerHTML = `
+                    <button class="message-action-btn copy-btn" title="Copy to clipboard">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">
+                    </button>
+                    <button class="message-action-btn like-btn" title="Helpful">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z'/%3E%3C/svg%3E" alt="Like">
+                    </button>
+                    <button class="message-action-btn dislike-btn" title="Not helpful">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z'/%3E%3C/svg%3E" alt="Dislike">
+                    </button>
+                    <button class="message-action-btn regenerate-btn" title="Regenerate response">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z'/%3E%3C/svg%3E" alt="Regenerate">
+                    </button>
+                `;
+            }
 
             // Add content to message
             if (this.config.enableMarkdown && sender === 'bot') {
                 if (useTypewriter && this.config.enableTypewriter) {
-                    messageDiv.innerHTML = '';
-                    this.typeWriter(messageDiv, marked.parse(text), () => {
-                        // Show actions after typewriter is done
-                        actionsDiv.style.display = 'flex';
-                        this.setupMessageLinks(messageDiv);
-                        this.scrollToTypingIndicator();
+                    // Create content container for typewriter
+                    const contentContainer = document.createElement('div');
+                    contentContainer.className = 'message-content';
+                    messageDiv.appendChild(contentContainer);
+                    
+                    this.typeWriter(contentContainer, marked.parse(text), () => {
+                        // Show actions after typewriter is done (only if enabled)
+                        if (actionsDiv && this.config.showMessageActions) {
+                            actionsDiv.style.display = 'flex';
+                        }
+                        this.setupMessageLinks(contentContainer);
                         this.updateLastBotMessage();
                         
-                        // Check for trigger words after typewriter finishes
-                        if (this.checkForTriggerWords(text)) {
-                            setTimeout(() => {
-                                this.showHubSpotForm();
-                            }, 500); // Small delay after typewriter
-                        }
+                        // Trigger word functionality removed - form now shows on chat open
                     });
                 } else {
-                    messageDiv.innerHTML = marked.parse(text);
-                    actionsDiv.style.display = 'flex';
-                    this.setupMessageLinks(messageDiv);
+                    // Create content container for immediate content
+                    const contentContainer = document.createElement('div');
+                    contentContainer.className = 'message-content';
+                    contentContainer.innerHTML = marked.parse(text);
+                    messageDiv.appendChild(contentContainer);
                     
-                    // Check for trigger words immediately if no typewriter
-                    if (this.checkForTriggerWords(text)) {
-                        this.showHubSpotForm();
+                    if (actionsDiv && this.config.showMessageActions) {
+                        actionsDiv.style.display = 'flex';
                     }
+                    this.setupMessageLinks(contentContainer);
+                    
+                    // Trigger word functionality removed - form now shows on chat open
                 }
             } else {
-                messageDiv.textContent = text;
-                actionsDiv.style.display = 'flex';
+                // Create content container for plain text
+                const contentContainer = document.createElement('div');
+                contentContainer.className = 'message-content';
+                contentContainer.textContent = text;
+                messageDiv.appendChild(contentContainer);
+                
+                if (actionsDiv && this.config.showMessageActions) {
+                    actionsDiv.style.display = 'flex';
+                }
             }
 
             botMessageContainer.appendChild(messageDiv);
-            botMessageContainer.appendChild(actionsDiv);
+            if (actionsDiv) {
+                botMessageContainer.appendChild(actionsDiv);
+            }
             messageRow.appendChild(botMessageContainer);
 
-            // Setup action buttons
-            this.setupMessageActions(botMessageContainer, text);
-
-            // Add new method to check for trigger words
-            if (this.checkForTriggerWords(text)) {
-                // Wait for typewriter to complete if enabled
-                if (useTypewriter && this.config.enableTypewriter) {
-                    this.typeWriter(messageDiv, marked.parse(text), () => {
-                        this.showHubSpotForm();
-                    });
-                } else {
-                    this.showHubSpotForm();
-                }
+            // Setup action buttons only if they exist
+            if (this.config.showMessageActions) {
+                this.setupMessageActions(botMessageContainer, text);
             }
+
+            // Hide greeting message action buttons when first AI response comes
+            this.hideGreetingActions();
+
+            // Trigger word functionality removed - form now shows on chat open
         } else {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
@@ -2131,7 +3844,21 @@ class EasyChatWidget {
             messageRow.appendChild(messageDiv);
         }
 
-        chatMessages.insertBefore(messageRow, typingIndicator);
+        // Insert new messages before the spacer (so they appear above the empty space)
+        const spacer = chatMessages.querySelector('.chat-spacer');
+        chatMessages.insertBefore(messageRow, spacer);
+        
+        // Only move typing indicator if it's currently active (visible)
+        const typingIndicatorElement = chatMessages.querySelector('.typing-indicator');
+        if (typingIndicatorElement && spacer && typingIndicatorElement.classList.contains('active')) {
+            chatMessages.insertBefore(typingIndicatorElement, spacer);
+        }
+        
+        // Only scroll to show new message if it's a user message
+        if (sender === 'user') {
+            this.scrollToShowNewMessage(messageRow);
+        }
+        
         this.updateLastBotMessage();
     }
 
@@ -2194,22 +3921,22 @@ class EasyChatWidget {
         const disableSending = () => {
             this.isWaitingForResponse = true;
             this.disableSendingFunctionality();
-            typingIndicator.style.display = 'block';
+            typingIndicator.classList.add('active');
+            // Typing indicator will be positioned correctly by addMessage
         };
     
         // Enable sending functionality
         const enableSending = () => {
             this.isWaitingForResponse = false;
             this.enableSendingFunctionality();
-            typingIndicator.style.display = 'none';
+            typingIndicator.classList.remove('active');
         };
     
         try {
             // Disable sending and show typing indicator
             disableSending();
     
-            // Scroll to typing indicator
-            this.scrollToTypingIndicator();
+            // No automatic scroll - let natural positioning handle it
     
             // Add user message if not a regeneration
             if (!isRegeneration) {
@@ -2217,15 +3944,49 @@ class EasyChatWidget {
                 this.storageManager.saveMessage(message, 'user');
             }
     
-            // Make API call
+                        // Make API call
             const requestData = this.formatRequestData(message);
             const response = await this.makeApiCall(requestData);
-    
-            // Process response
-            const responseText = this.config.transformResponse 
-                ? this.config.transformResponse(response)
-                : response[this.config.apiResponseFormat.response];
-    
+
+            // Process response with enhanced handling
+            let responseText;
+            
+            try {
+                if (this.config.transformResponse) {
+                    responseText = this.config.transformResponse(response);
+                } else if (typeof response === 'string') {
+                    responseText = response;
+                } else if (response && typeof response === 'object') {
+                    // Handle different response formats
+                    if (response.response) {
+                        responseText = response.response;
+                    } else if (response.message) {
+                        responseText = response.message;
+                    } else if (response.text) {
+                        responseText = response.text;
+                    } else if (response.content) {
+                        responseText = response.content;
+                    } else if (response.answer) {
+                        responseText = response.answer;
+                    } else {
+                        // Fallback: try to extract from apiResponseFormat
+                        responseText = response[this.config.apiResponseFormat.response] || 
+                                     JSON.stringify(response, null, 2);
+                    }
+                } else {
+                    responseText = String(response);
+                }
+
+                // Validate response
+                if (!responseText || responseText.trim() === '') {
+                    throw new Error('Empty response received from server');
+                }
+
+            } catch (error) {
+                console.error('Error processing API response:', error);
+                responseText = 'Sorry, there was an error processing the response. Please try again.';
+            }
+
             // Add bot response
             this.addMessage(responseText, 'bot', true);
             this.storageManager.saveMessage(responseText, 'bot', isRegeneration);
@@ -2245,77 +4006,375 @@ class EasyChatWidget {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
     
-    // Enhanced mobile input interaction method
-    enableMobileInputInteraction(inputElement) {
-        // Comprehensive mobile input activation
-        const activateInput = () => {
-            inputElement.removeAttribute('readonly');
-            inputElement.classList.add('cursor-active');
+    // Clean chat toggle method
+    toggleChat() {
+        const chatWindow = this.widget.querySelector('.chat-window');
+        const chatToggle = this.widget.querySelector('.chat-toggle');
+        const chatInput = this.widget.querySelector('.chat-input input');
+        const isActive = chatWindow.classList.contains('active');
+        
+        if (isActive) {
+            this.closeChat();
+        } else {
+            this.openChat();
+        }
+    }
+    
+    // Clean close method with proper cleanup
+    closeChat() {
+        const chatWindow = this.widget.querySelector('.chat-window');
+        const chatToggle = this.widget.querySelector('.chat-toggle');
+        const chatInput = this.widget.querySelector('.chat-input input');
+        
+
+        
+        // Clean input state completely
+        if (chatInput) {
+            chatInput.classList.remove('cursor-active', 'mobile-focused');
+            chatInput.blur();
+            chatInput.style.caretColor = 'transparent';
             
-            // Delayed focus for better keyboard handling
+            // Clean up mobile input handlers if they exist
+            if (this._mobileInputCleanup) {
+                this._mobileInputCleanup();
+                this._mobileInputCleanup = null;
+            }
+        }
+        
+        // Remove any active modal states
+        if (this.activeModal) {
+            this.removeActiveForm();
+        }
+        
+        // Restore document scroll behavior
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        document.documentElement.style.overflow = '';
+        
+        // Clean up any remaining event listeners that might interfere
+        const chatMessages = this.widget.querySelector('.chat-messages');
+        if (chatMessages) {
+            chatMessages.style.overflow = '';
+            chatMessages.style.overscrollBehavior = '';
+        }
+        
+        // Close window with animation
+        chatWindow.classList.remove('active');
+        this.updateToggleIcon(false);
+        
+        setTimeout(() => {
+            chatWindow.style.display = 'none';
+            
+            // Show text box when chat closes directly (only if not manually closed)
+            const textBox = this.widget.querySelector('.chat-text-box');
+            if (textBox && this.config.showTextBox && !this._textBoxManuallyClosed) {
+                textBox.style.display = 'block';
+                // Reset any lingering styles
+                textBox.style.opacity = '1';
+                textBox.style.transform = 'translateY(0)';
+            }
+            
+            // Re-enable toggle button animation when chat closes
+            this.enableToggleButtonAnimation();
+        }, 300);
+        
+
+    }
+    
+    // Clean open method with proper initialization
+    openChat() {
+        const chatWindow = this.widget.querySelector('.chat-window');
+        const chatInput = this.widget.querySelector('.chat-input input');
+        const textBox = this.widget.querySelector('.chat-text-box');
+        
+
+        
+        // Hide text box when chat opens directly (only if not manually closed)
+        if (textBox && this.config.showTextBox && !this._textBoxManuallyClosed) {
+            textBox.style.display = 'none';
+        }
+        
+        // Ensure window is visible
+        chatWindow.style.display = 'flex';
+        this.updateToggleIcon(true);
+        
+        // Disable toggle button animation when chat opens
+        this.disableToggleButtonAnimation();
+        
+        requestAnimationFrame(() => {
+            chatWindow.classList.add('active');
+            
+            // Setup mobile input if needed - only once
+            if (this.isMobileBrowser() && this.config.enableEnhancedMobileInput && chatInput && !this._mobileInputSetup) {
+                this.setupCleanMobileInput(chatInput);
+                this._mobileInputSetup = true;
+            }
+            
+            // Ensure input is ready but not focused initially
+            if (chatInput) {
+                chatInput.style.caretColor = 'transparent';
+                chatInput.classList.remove('mobile-focused');
+            }
+            
+            // Always scroll to bottom when chat opens
             setTimeout(() => {
+                this.scrollToBottom();
+            }, 100);
+            
+            // Show form if configured
+            if (this.config.showFormOnStart && this.config.hubspot?.enabled && 
+                !this.userManager.hasSubmittedForm()) {
+                setTimeout(() => {
+                    this.showHubSpotForm();
+                }, 500);
+            }
+        });
+        
+
+    }
+    
+    // Helper method to update toggle icon
+    updateToggleIcon(isOpen) {
+        const chatToggle = this.widget.querySelector('.chat-toggle');
+        if (!chatToggle) return;
+        
+        if (isOpen) {
+            // Show close icon
+            chatToggle.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z'/%3E%3C/svg%3E" alt="Close">`;
+        } else {
+            // Show custom icon or default
+            if (this.config.toggleButtonIcon) {
+                const icon = this.config.toggleButtonIcon;
+                if (icon.length <= 4 && /\p{Emoji}/u.test(icon)) {
+                    chatToggle.innerHTML = `<span style="font-size: 24px;">${icon}</span>`;
+                } else if (icon.startsWith('http') || icon.startsWith('data:image') || icon.startsWith('/')) {
+                    chatToggle.innerHTML = `<img src="${icon}" alt="Chat" style="width: 24px; height: 24px;">`;
+                } else if (icon.trim().startsWith('<svg')) {
+                    chatToggle.innerHTML = icon;
+                } else {
+                    chatToggle.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'/%3E%3C/svg%3E" alt="Chat">`;
+                }
+            } else {
+                chatToggle.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'/%3E%3C/svg%3E" alt="Chat">`;
+            }
+        }
+    }
+    
+    // Clean mobile input system - fixed for proper UX
+    setupCleanMobileInput(inputElement) {
+        
+        // Track focus state
+        let isInputFocused = false;
+        
+        // Clean input setup
+        const setupInput = () => {
+            inputElement.removeAttribute('readonly');
+            inputElement.removeAttribute('disabled');
+            inputElement.style.userSelect = 'text';
+            inputElement.style.webkitUserSelect = 'text';
+            inputElement.style.pointerEvents = 'auto';
+            inputElement.style.fontSize = '16px'; // Prevent iOS zoom
+            inputElement.style.webkitAppearance = 'none';
+            inputElement.style.appearance = 'none';
+        };
+        
+        // Enhanced focus management for mobile
+        const focusInput = () => {
+            
+            setupInput();
+            isInputFocused = true;
+            
+            // Multiple focus strategies for maximum compatibility
                 inputElement.focus();
+            inputElement.click();
                 
-                // iOS-specific cursor placement
+            // iOS specific enhancements
                 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    inputElement.setSelectionRange(
-                        inputElement.value.length, 
-                        inputElement.value.length
-                    );
+                // Force iOS keyboard with temporary input trick
+                const tempInput = document.createElement('input');
+                tempInput.style.position = 'absolute';
+                tempInput.style.left = '-9999px';
+                tempInput.style.fontSize = '16px';
+                tempInput.style.opacity = '0';
+                document.body.appendChild(tempInput);
+                tempInput.focus();
+                
+                setTimeout(() => {
+                    inputElement.focus();
+                    if (isInputFocused) {
+                        inputElement.setSelectionRange(inputElement.value.length, inputElement.value.length);
+                    }
+                    document.body.removeChild(tempInput);
+                }, 50);
+            } else {
+                // Android and other mobile devices
+                setTimeout(() => {
+                    if (isInputFocused) {
+                        inputElement.setSelectionRange(inputElement.value.length, inputElement.value.length);
                 }
             }, 100);
+            }
         };
-    
-        // Add touch and click listeners
-        const setupInputListeners = () => {
-            const handleInputInteraction = (event) => {
-                event.preventDefault();
-                activateInput();
-            };
-    
-            inputElement.addEventListener('touchstart', handleInputInteraction, { passive: false });
-            inputElement.addEventListener('click', handleInputInteraction);
+        
+        // Clean blur management
+        const blurInput = () => {
+            isInputFocused = false;
+            inputElement.blur();
+            inputElement.classList.remove('mobile-focused');
+            // Remove cursor completely
+            inputElement.style.caretColor = 'transparent';
         };
-    
-        // Apply mobile-specific styles
-        const addMobileStyles = () => {
-            const style = document.createElement('style');
-            style.textContent = `
-                @media (max-width: 480px) {
-                    .chat-input input {
-                        -webkit-user-select: text !important;
-                        user-select: text !important;
-                        -webkit-touch-callout: default !important;
-                        cursor: text !important;
-                        caret-color: auto !important;
-                        font-size: 16px !important;
-                    }
-                    
-                    .chat-input input.cursor-active {
-                        pointer-events: auto !important;
-                        user-select: text !important;
-                        -webkit-user-select: text !important;
-                    }
-                    
-                    .chat-input input[readonly] {
-                        cursor: pointer !important;
-                        user-select: none;
-                        -webkit-user-select: none;
-                    }
-                    
-                    .chat-input input:focus {
-                        outline: none;
-                        caret-color: auto !important;
-                    }
+        
+        // Input focus handler - show cursor when focused
+        inputElement.addEventListener('focus', (e) => {
+
+            isInputFocused = true;
+            inputElement.classList.add('mobile-focused');
+            inputElement.style.caretColor = 'auto';
+            inputElement.style.cursor = 'text';
+        });
+        
+        // Input blur handler - only hide cursor when clicking outside chat
+        inputElement.addEventListener('blur', (e) => {
+
+            // Short delay to check if focus moved to chat elements
+            setTimeout(() => {
+                const activeElement = document.activeElement;
+                const chatWindow = this.widget.querySelector('.chat-window');
+                
+                // Only hide cursor if focus moved completely outside chat
+                if (!chatWindow.contains(activeElement)) {
+                    isInputFocused = false;
+                    inputElement.classList.remove('mobile-focused');
+                    inputElement.style.caretColor = 'transparent';
                 }
-            `;
-            document.head.appendChild(style);
-        };
+            }, 100);
+        });
+        
+        // Enhanced click handler for better mobile touch response
+        inputElement.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            focusInput();
+        });
+        
+        // Enhanced touch handlers for mobile
+        inputElement.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            focusInput();
+        });
+        
+        inputElement.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            focusInput();
+        });
+        
+        // Enhanced container click handler with larger touch area
+        const container = inputElement.closest('.chat-input');
+        if (container) {
+            // Create invisible overlay to ensure full clickability
+            const overlay = document.createElement('div');
+            overlay.style.position = 'absolute';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.right = '0';
+            overlay.style.bottom = '0';
+            overlay.style.zIndex = '10';
+            overlay.style.background = 'transparent';
+            overlay.style.cursor = 'text';
+            overlay.style.pointerEvents = 'auto';
+            container.style.position = 'relative';
+            container.appendChild(overlay);
+            
+            // Enhanced container handlers
+            const handleContainerInteraction = (e, type) => {
+                e.preventDefault();
+                e.stopPropagation();
     
-        // Initialize mobile input handling
-        addMobileStyles();
-        setupInputListeners();
-        activateInput();
+                focusInput();
+            };
+            
+            container.addEventListener('click', (e) => handleContainerInteraction(e, 'clicked'));
+            container.addEventListener('touchstart', (e) => handleContainerInteraction(e, 'touched'));
+            container.addEventListener('touchend', (e) => handleContainerInteraction(e, 'touch ended'));
+            
+            // Overlay handlers for maximum coverage
+            overlay.addEventListener('click', (e) => handleContainerInteraction(e, 'overlay clicked'));
+            overlay.addEventListener('touchstart', (e) => handleContainerInteraction(e, 'overlay touched'));
+            overlay.addEventListener('touchend', (e) => handleContainerInteraction(e, 'overlay touch ended'));
+        }
+        
+        // Global click handler to blur when clicking outside chat
+        const handleOutsideClick = (e) => {
+            const chatWindow = this.widget.querySelector('.chat-window');
+            if (isInputFocused && !chatWindow.contains(e.target)) {
+
+                blurInput();
+            }
+        };
+        
+        document.addEventListener('click', handleOutsideClick);
+        document.addEventListener('touchstart', handleOutsideClick);
+        
+        // Store cleanup function
+        this._mobileInputCleanup = () => {
+            document.removeEventListener('click', handleOutsideClick);
+            document.removeEventListener('touchstart', handleOutsideClick);
+        };
+        
+        // Initial setup
+        setupInput();
+        
+        // Only hide cursor on mobile initially
+        if (this.isMobileBrowser()) {
+            inputElement.style.caretColor = 'transparent'; // Start with hidden cursor on mobile
+        } else {
+            inputElement.style.caretColor = 'auto'; // Show cursor on desktop
+        }
+        
+
+    }
+    
+    // Desktop input system - simple and effective
+    setupDesktopInput(inputElement) {
+        
+        // Ensure proper input properties
+        inputElement.removeAttribute('readonly');
+        inputElement.removeAttribute('disabled');
+        inputElement.style.userSelect = 'text';
+        inputElement.style.pointerEvents = 'auto';
+        inputElement.style.cursor = 'text';
+        inputElement.style.caretColor = 'auto';
+        
+        // Simple focus/blur handlers for desktop
+        inputElement.addEventListener('focus', () => {
+
+            inputElement.style.caretColor = 'auto';
+            inputElement.style.cursor = 'text';
+            inputElement.classList.add('cursor-active');
+        });
+        
+        inputElement.addEventListener('blur', () => {
+
+            // Keep cursor visible on desktop even when blurred
+            inputElement.style.caretColor = 'auto';
+            inputElement.style.cursor = 'text';
+        });
+        
+        inputElement.addEventListener('click', () => {
+
+            inputElement.style.caretColor = 'auto';
+            inputElement.style.cursor = 'text';
+            inputElement.classList.add('cursor-active');
+        });
+        
+
     }
     
     // Enhanced scroll method to ensure visibility
@@ -2340,7 +4399,7 @@ class EasyChatWidget {
         }
     }
 
-    formatRequestData(message) {
+    formatRequestData(message, files = []) {
         // Create base request object
         const baseRequest = {
             [this.config.apiRequestFormat.query]: message,
@@ -2348,12 +4407,156 @@ class EasyChatWidget {
             [this.config.apiRequestFormat.domain]: this.userManager.domain
         };
 
+        // Add files if provided
+        if (files && files.length > 0) {
+            // For APIs that expect a single 'image' field, use the first file
+            if (this.config.apiDataFormat === 'form-data' && files.length === 1) {
+                baseRequest['image'] = files[0];
+            } else {
+                // For multiple files or different field naming
+            files.forEach((file, index) => {
+                baseRequest[`file_${index}`] = file;
+            });
+            baseRequest.fileCount = files.length;
+            }
+        }
+
         // Allow for custom request transformation
         if (this.config.transformRequest) {
             return this.config.transformRequest(baseRequest);
         }
 
         return baseRequest;
+    }
+
+    // Update file preview display
+    updateFilePreview(files, filePreview) {
+        if (files.length === 0) {
+            filePreview.style.display = 'none';
+            filePreview.innerHTML = '';
+            return;
+        }
+
+        filePreview.style.display = 'block';
+        filePreview.innerHTML = files.map((file, index) => {
+            const size = this.formatFileSize(file.size);
+            return `
+                <div class="file-preview-item">
+                    <div class="file-info">
+                        <span class="file-name">${file.name}</span>
+                        <span class="file-size">${size}</span>
+                    </div>
+                    <button class="remove-file" data-index="${index}">×</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Format file size for display
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Enhanced method to handle file uploads
+    async sendMessageWithFiles(message, files = []) {
+        if (this.isWaitingForResponse || this.isTypewriterActive) {
+            return;
+        }
+
+        const chatInput = this.widget.querySelector('.chat-input input');
+        const typingIndicator = this.widget.querySelector('.typing-indicator');
+
+        try {
+            // Disable sending and show typing indicator
+            this.isWaitingForResponse = true;
+            this.disableSendingFunctionality();
+            typingIndicator.classList.add('active');
+
+            // No automatic scroll - let natural positioning handle it
+
+            // Add user message
+            this.addMessage(message, 'user');
+            this.storageManager.saveMessage(message, 'user');
+
+            // Format request data with files
+            const requestData = this.formatRequestData(message, files);
+            
+            // Set multipart content type for file uploads
+            const originalHeaders = { ...this.config.apiHeaders };
+            this.config.apiHeaders['Content-Type'] = 'multipart/form-data';
+
+            // Make API call
+            const response = await this.makeApiCall(requestData);
+
+            // Restore original headers
+            this.config.apiHeaders = originalHeaders;
+
+            // Process response
+            let responseText;
+            
+            try {
+                if (this.config.transformResponse) {
+                    responseText = this.config.transformResponse(response);
+                } else if (typeof response === 'string') {
+                    responseText = response;
+                } else if (response && typeof response === 'object') {
+                    if (response.response) {
+                        responseText = response.response;
+                    } else if (response.message) {
+                        responseText = response.message;
+                    } else if (response.text) {
+                        responseText = response.text;
+                    } else if (response.content) {
+                        responseText = response.content;
+                    } else if (response.answer) {
+                        responseText = response.answer;
+                    } else {
+                        responseText = response[this.config.apiResponseFormat.response] || 
+                                     JSON.stringify(response, null, 2);
+                    }
+                } else {
+                    responseText = String(response);
+                }
+
+                if (!responseText || responseText.trim() === '') {
+                    throw new Error('Empty response received from server');
+                }
+
+            } catch (error) {
+                console.error('Error processing API response:', error);
+                responseText = 'Sorry, there was an error processing the response. Please try again.';
+            }
+
+            // Add bot response
+            this.addMessage(responseText, 'bot', true);
+            this.storageManager.saveMessage(responseText, 'bot');
+
+        } catch (error) {
+            console.error('API Error:', error);
+            this.addMessage('Sorry, there was an error processing your request.', 'bot', false);
+        } finally {
+            // Always enable sending and reset input
+            this.isWaitingForResponse = false;
+            this.enableSendingFunctionality();
+            typingIndicator.classList.remove('active');
+            
+            // Ensure input is cleared and reset
+            chatInput.value = '';
+            chatInput.setAttribute('readonly', 'true');
+            chatInput.classList.remove('cursor-active');
+
+            if (this.isMobileBrowser()) {
+                setTimeout(() => {
+                    this.enableMobileInputInteraction(chatInput);
+                }, 100);
+            } else {
+                chatInput.focus();
+            }
+        }
     }
 
     async makeApiCall(requestData) {
@@ -2367,6 +4570,46 @@ class EasyChatWidget {
             headers['Authorization'] = `Bearer ${this.config.apiKey}`;
         }
 
+        // Check if we need to send as multipart/form-data
+        const shouldUseMultipart = this.config.useMultipartFormData || 
+                                  this.config.apiHeaders['Content-Type']?.includes('multipart/form-data') || 
+                                  this.config.apiMethod === 'POST' && this.config.apiEndpoint.includes('upload') ||
+                                  this.config.apiDataFormat === 'form-data';
+
+        let requestBody;
+        let finalHeaders = { ...headers };
+
+        if (shouldUseMultipart) {
+            // Create FormData for multipart request
+            const formData = new FormData();
+            
+            // Add all request data to FormData
+            Object.keys(requestData).forEach(key => {
+                const value = requestData[key];
+                
+                // Handle different types of data
+                if (value instanceof File) {
+                    formData.append(key, value);
+                } else if (value instanceof Blob) {
+                    formData.append(key, value);
+                } else if (typeof value === 'object' && value !== null) {
+                    // Convert objects to JSON strings for form data
+                    formData.append(key, JSON.stringify(value));
+                } else {
+                    formData.append(key, String(value));
+                }
+            });
+
+            requestBody = formData;
+            
+            // Remove Content-Type header to let browser set it with boundary
+            delete finalHeaders['Content-Type'];
+        } else {
+            // Use JSON for regular requests
+            requestBody = JSON.stringify(requestData);
+            finalHeaders['Content-Type'] = 'application/json';
+        }
+
         // Make the API call
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.config.apiTimeout);
@@ -2374,30 +4617,87 @@ class EasyChatWidget {
         try {
             const response = await fetch(this.config.apiEndpoint, {
                 method: this.config.apiMethod,
-                headers: headers,
-                body: JSON.stringify(requestData),
+                headers: finalHeaders,
+                body: requestBody,
                 signal: controller.signal
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
             }
 
-            const data = await response.json();
-            return data;
+            // Handle different response types
+            const contentType = response.headers.get('content-type');
+            
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                return data;
+            } else if (contentType && contentType.includes('text/')) {
+                const text = await response.text();
+                return { response: text };
+            } else {
+                // Handle binary responses or other types
+                const blob = await response.blob();
+                return { response: URL.createObjectURL(blob) };
+            }
 
+        } catch (error) {
+            // Enhanced error handling
+            if (error.name === 'AbortError') {
+                throw new Error('Request timed out. Please try again.');
+            } else if (error.message.includes('Failed to fetch')) {
+                throw new Error('Network error. Please check your internet connection.');
+            } else if (error.message.includes('SSL_PROTOCOL_ERROR')) {
+                throw new Error('Secure connection error. Please ensure the server supports HTTPS.');
+            } else {
+                throw error;
+            }
         } finally {
             clearTimeout(timeoutId);
         }
     }
 
     processApiResponse(data, typingIndicator) {
-        typingIndicator.style.display = 'none';
+        typingIndicator.classList.remove('active');
         
-        // Extract response using custom format
-        const responseText = this.config.transformResponse 
-            ? this.config.transformResponse(data)
-            : data[this.config.apiResponseFormat.response];
+        // Enhanced response processing
+        let responseText;
+        
+        try {
+            if (this.config.transformResponse) {
+                responseText = this.config.transformResponse(data);
+            } else if (typeof data === 'string') {
+                responseText = data;
+            } else if (data && typeof data === 'object') {
+                // Handle different response formats
+                if (data.response) {
+                    responseText = data.response;
+                } else if (data.message) {
+                    responseText = data.message;
+                } else if (data.text) {
+                    responseText = data.text;
+                } else if (data.content) {
+                    responseText = data.content;
+                } else if (data.answer) {
+                    responseText = data.answer;
+                } else {
+                    // Fallback: try to extract from apiResponseFormat
+                    responseText = data[this.config.apiResponseFormat.response] || 
+                                 JSON.stringify(data, null, 2);
+                }
+            } else {
+                responseText = String(data);
+            }
+
+            // Validate response
+            if (!responseText || responseText.trim() === '') {
+                throw new Error('Empty response received from server');
+            }
+
+        } catch (error) {
+            console.error('Error processing API response:', error);
+            responseText = 'Sorry, there was an error processing the response. Please try again.';
+        }
 
         // Ensure chat window stays open and active
         const chatWindow = this.widget.querySelector('.chat-window');
@@ -2409,7 +4709,7 @@ class EasyChatWidget {
 
     handleApiError(error, typingIndicator) {
         console.error('API Error:', error);
-        typingIndicator.style.display = 'none';
+        typingIndicator.classList.remove('active');
         
         let errorMessage = 'Sorry, there was an error processing your request.';
         
@@ -2433,7 +4733,7 @@ class EasyChatWidget {
         this.addMessage(chatInput.value.trim(), 'user');
         this.storageManager.saveMessage(chatInput.value.trim(), 'user');
         chatInput.value = '';
-        typingIndicator.style.display = 'block';
+        typingIndicator.classList.add('active');
         this.isWaitingForResponse = true;
         this.disableSendingFunctionality();
     }
@@ -2443,7 +4743,7 @@ class EasyChatWidget {
         if (!this.isTypewriterActive) {
             this.enableSendingFunctionality();
         }
-        typingIndicator.style.display = 'none';
+        typingIndicator.classList.remove('active');
     }
 
     loadChatHistory() {
@@ -2497,9 +4797,31 @@ class EasyChatWidget {
     }
 
     destroy() {
+        // Clean up mobile input handlers
+        if (this._mobileInputCleanup) {
+            this._mobileInputCleanup();
+            this._mobileInputCleanup = null;
+        }
+        
+        // Reset mobile setup flag
+        this._mobileInputSetup = false;
+        
+        // Remove any active forms
         this.removeActiveForm();
-        // Clean up logic would go here
-        // Remove event listeners and DOM elements
+        
+        // Restore document styles
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        document.documentElement.style.overflow = '';
+        
+        // Remove widget from DOM
+        if (this.widget) {
+            this.widget.remove();
+            this.widget = null;
+        }
+        
+
     }
 
     setupEraseButton() {
@@ -2527,9 +4849,10 @@ class EasyChatWidget {
             const chatMessages = this.widget.querySelector('.chat-messages');
             const messages = chatMessages.querySelectorAll('.message-row');
             const greetingRow = chatMessages.querySelector('#greeting-row');
+            const formRow = chatMessages.querySelector('.hubspot-form-row');
             
             messages.forEach(message => {
-                if (message.id !== 'greeting-row') {
+                if (message.id !== 'greeting-row' && !message.classList.contains('hubspot-form-row')) {
                     message.remove();
                 }
             });
@@ -2539,24 +4862,29 @@ class EasyChatWidget {
 
             // Only delete backend history if explicitly enabled AND endpoint exists
             if (this.config.enableServerHistoryDelete === true && this.config.deleteEndpoint) {
-                console.log('Attempting to delete server history...');
+
                 this.deleteBackendHistory()
                     .then(() => {
-                        console.log('Backend history deleted successfully');
+
                     })
                     .catch(error => {
                         console.error('Failed to delete backend history:', error);
                     });
             } else {
-                console.log('Server history deletion skipped:', {
-                    enabled: this.config.enableServerHistoryDelete,
-                    hasEndpoint: Boolean(this.config.deleteEndpoint)
-                });
+
             }
 
-            // Ensure greeting message exists
-            if (!chatMessages.querySelector('#greeting-row')) {
+            // Ensure greeting message exists and is properly styled
+            const existingGreeting = chatMessages.querySelector('#greeting-row');
+            if (!existingGreeting) {
                 this.addGreetingMessage();
+            } else {
+                // If greeting exists but doesn't have avatar, refresh it
+                const greetingHasAvatar = existingGreeting.querySelector('.ai-avatar');
+                if (!greetingHasAvatar) {
+                    existingGreeting.remove();
+                this.addGreetingMessage();
+                }
             }
 
             // Clear input
@@ -2565,7 +4893,7 @@ class EasyChatWidget {
                 chatInput.value = '';
             }
 
-            console.log('Chat history cleared successfully');
+
 
         } catch (error) {
             console.error('Error during chat erasure:', error);
@@ -2582,17 +4910,345 @@ class EasyChatWidget {
         const existingGreeting = chatMessages.querySelector('#greeting-row');
         
         if (!existingGreeting) {
-            const newGreeting = document.createElement('div');
-            newGreeting.className = 'message-row';
-            newGreeting.id = 'greeting-row';
+            // ADVANCED: Create greeting message with perfect width consistency
+            // Use the exact same structure and timing as addMessage for bot messages
             
-            const greetingMessage = document.createElement('div');
-            greetingMessage.className = 'message bot-message greeting-message';
-            greetingMessage.textContent = this.config.greeting;
+            // Step 1: Create the complete DOM structure
+            const messageRow = document.createElement('div');
+            messageRow.className = 'message-row';
+            messageRow.id = 'greeting-row';
             
-            newGreeting.appendChild(greetingMessage);
-            chatMessages.insertBefore(newGreeting, chatMessages.firstChild);
+            const botMessageContainer = document.createElement('div');
+            botMessageContainer.className = 'bot-message-container';
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message';
+            
+            // Step 2: Generate AI avatar with robust logic
+            const avatar = this.config.aiAvatar || '🤖';
+            const botName = this.config.botName || 'Chat Assistant';
+            
+            let avatarHtml = '';
+            if (avatar.length <= 4 && /\p{Emoji}/u.test(avatar)) {
+                avatarHtml = `
+                    <div class="ai-avatar">
+                        <div class="ai-avatar-icon">${avatar}</div>
+                        <div class="ai-name">${botName}</div>
+                    </div>
+                `;
+            } else if (avatar.startsWith('http') || avatar.startsWith('data:image') || avatar.startsWith('/')) {
+                avatarHtml = `
+                    <div class="ai-avatar">
+                        <div class="ai-avatar-icon">
+                            <img src="${avatar}" alt="${botName}" />
+                        </div>
+                        <div class="ai-name">${botName}</div>
+                    </div>
+                `;
+            } else if (avatar.trim().startsWith('<svg')) {
+                avatarHtml = `
+                    <div class="ai-avatar">
+                        <div class="ai-avatar-icon">
+                            ${avatar}
+                        </div>
+                        <div class="ai-name">${botName}</div>
+                    </div>
+                `;
+            } else {
+                avatarHtml = `
+                    <div class="ai-avatar">
+                        <div class="ai-avatar-icon">🤖</div>
+                        <div class="ai-name">${botName}</div>
+                    </div>
+                `;
+            }
+            
+            messageDiv.innerHTML = avatarHtml;
+            
+            // Step 3: Create content container (identical to addMessage)
+            const contentContainer = document.createElement('div');
+            contentContainer.className = 'message-content';
+            contentContainer.textContent = this.config.greeting;
+            messageDiv.appendChild(contentContainer);
+            
+            // Step 4: Create actions container only if message actions are enabled
+            let actionsDiv = null;
+            if (this.config.showMessageActions) {
+                actionsDiv = document.createElement('div');
+                actionsDiv.className = 'message-actions greeting-actions';
+                actionsDiv.style.display = 'flex'; // Show initially for greeting message
+                actionsDiv.innerHTML = `
+                    <button class="message-action-btn copy-btn" title="Copy to clipboard">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">
+                    </button>
+                    <button class="message-action-btn like-btn" title="Helpful">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z'/%3E%3C/svg%3E" alt="Like">
+                    </button>
+                    <button class="message-action-btn dislike-btn" title="Not helpful">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z'/%3E%3C/svg%3E" alt="Dislike">
+                    </button>
+                    <button class="message-action-btn regenerate-btn" title="Regenerate response">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z'/%3E%3C/svg%3E" alt="Regenerate">
+                    </button>
+                `;
+            }
+            
+            // Step 5: Assemble the complete structure
+            botMessageContainer.appendChild(messageDiv);
+            if (actionsDiv) {
+                botMessageContainer.appendChild(actionsDiv);
+                // Setup greeting action buttons
+                this.setupMessageActions(botMessageContainer, this.config.greeting);
+            }
+            messageRow.appendChild(botMessageContainer);
+            
+            // Step 6: Insert at the beginning of chat messages
+            chatMessages.insertBefore(messageRow, chatMessages.firstChild);
+            
+            // Step 7: Comprehensive width synchronization (multiple attempts)
+            this.synchronizeGreetingWidth(messageRow);
+            
+            // Step 8: Additional synchronization attempts to ensure width consistency
+            setTimeout(() => {
+                this.synchronizeGreetingWidth(messageRow);
+            }, 100);
+            
+            setTimeout(() => {
+                this.synchronizeGreetingWidth(messageRow);
+            }, 300);
+            
+
         }
+    }
+
+    // COMPREHENSIVE: Force greeting message width to match other AI responses
+    synchronizeGreetingWidth(greetingRow) {
+        // Step 1: Wait for DOM to be fully rendered
+        requestAnimationFrame(() => {
+            // Step 2: Force recalculation of styles
+            const greetingMessage = greetingRow.querySelector('.bot-message');
+            const greetingContainer = greetingRow.querySelector('.bot-message-container');
+            
+            if (greetingMessage && greetingContainer) {
+                // Force style recalculation
+                greetingMessage.offsetHeight;
+                greetingContainer.offsetHeight;
+                
+                // Step 3: Apply aggressive width synchronization
+                const chatMessages = this.widget.querySelector('.chat-messages');
+                const otherBotMessages = chatMessages.querySelectorAll('.bot-message:not(#greeting-row .bot-message)');
+                
+                if (otherBotMessages.length > 0) {
+                    // Get computed styles from other bot messages
+                    const referenceMessage = otherBotMessages[0];
+                    const referenceContainer = referenceMessage.closest('.bot-message-container');
+                    const computedStyle = window.getComputedStyle(referenceMessage);
+                    const containerStyle = referenceContainer ? window.getComputedStyle(referenceContainer) : null;
+                    
+                    // Apply the same width constraints aggressively
+                    greetingMessage.style.setProperty('max-width', computedStyle.maxWidth, 'important');
+                    greetingMessage.style.setProperty('width', computedStyle.width, 'important');
+                    greetingMessage.style.setProperty('min-width', computedStyle.minWidth, 'important');
+                    
+                    // Force container width to match
+                    if (containerStyle) {
+                        greetingContainer.style.setProperty('max-width', containerStyle.maxWidth, 'important');
+                        greetingContainer.style.setProperty('width', containerStyle.width, 'important');
+                        greetingContainer.style.setProperty('min-width', containerStyle.minWidth, 'important');
+                    } else {
+                        // Fallback: force 80% width
+                        greetingContainer.style.setProperty('max-width', '80%', 'important');
+                        greetingContainer.style.setProperty('width', '80%', 'important');
+                    }
+                } else {
+                    // Fallback: force standard width if no other messages exist
+                    greetingContainer.style.setProperty('max-width', '80%', 'important');
+                    greetingContainer.style.setProperty('width', '80%', 'important');
+                    greetingMessage.style.setProperty('max-width', '100%', 'important');
+                    greetingMessage.style.setProperty('width', '100%', 'important');
+                }
+                
+                // Step 4: Force another recalculation
+                greetingMessage.offsetHeight;
+                greetingContainer.offsetHeight;
+                
+                // Step 5: Additional force after a short delay
+                setTimeout(() => {
+                    greetingMessage.style.setProperty('max-width', '100%', 'important');
+                    greetingMessage.style.setProperty('width', '100%', 'important');
+                    greetingContainer.style.setProperty('max-width', '80%', 'important');
+                    greetingContainer.style.setProperty('width', '80%', 'important');
+                }, 50);
+                
+        
+            }
+        });
+    }
+
+    ensureGreetingMessageWithAvatar() {
+        const chatMessages = this.widget.querySelector('.chat-messages');
+        const existingGreeting = chatMessages.querySelector('#greeting-row');
+        
+        if (existingGreeting) {
+            // Check if greeting has avatar
+            const greetingHasAvatar = existingGreeting.querySelector('.ai-avatar');
+            if (!greetingHasAvatar) {
+    
+                existingGreeting.remove();
+                this.addGreetingMessage();
+            } else {
+
+                // ADVANCED: Re-synchronize width even for existing greeting
+                this.synchronizeGreetingWidth(existingGreeting);
+            }
+        } else {
+
+            this.addGreetingMessage();
+        }
+    }
+    
+    ensureSendButtonIconSize() {
+
+        const sendButton = this.widget.querySelector('.send-button');
+        const sendButtonImg = this.widget.querySelector('.send-button img');
+        
+        if (sendButton && sendButtonImg) {
+            // Force apply the icon size with inline styles as backup
+            const iconSize = this.config.sendButtonIconSize;
+            
+            // Apply to button
+            sendButton.style.width = `${iconSize + 16}px`;
+            sendButton.style.height = `${iconSize + 16}px`;
+            sendButton.style.minWidth = `${iconSize + 16}px`;
+            sendButton.style.minHeight = `${iconSize + 16}px`;
+            
+            // Apply to image
+            sendButtonImg.style.width = `${iconSize}px`;
+            sendButtonImg.style.height = `${iconSize}px`;
+            sendButtonImg.style.minWidth = `${iconSize}px`;
+            sendButtonImg.style.minHeight = `${iconSize}px`;
+            sendButtonImg.style.maxWidth = `${iconSize}px`;
+            sendButtonImg.style.maxHeight = `${iconSize}px`;
+            sendButtonImg.style.objectFit = 'contain';
+            sendButtonImg.style.display = 'block';
+            sendButtonImg.style.flexShrink = '0';
+            
+
+        }
+    }
+
+    applyToggleButtonAnimation() {
+        const chatToggle = this.widget.querySelector('.chat-toggle');
+        if (chatToggle && this.config.toggleButtonAnimation > 0) {
+            // Remove any existing animation classes
+            chatToggle.classList.remove('animation-1', 'animation-2', 'animation-3', 'animation-4', 'animation-5');
+            
+            // Add the specific animation class
+            chatToggle.classList.add(`animation-${this.config.toggleButtonAnimation}`);
+            
+
+        }
+    }
+
+    // Disable toggle button animation (when chat opens)
+    disableToggleButtonAnimation() {
+        const chatToggle = this.widget.querySelector('.chat-toggle');
+        if (chatToggle) {
+            // Remove all animation classes
+            chatToggle.classList.remove('animation-1', 'animation-2', 'animation-3', 'animation-4', 'animation-5');
+
+        }
+    }
+
+    // Enable toggle button animation (when chat closes)
+    enableToggleButtonAnimation() {
+        const chatToggle = this.widget.querySelector('.chat-toggle');
+        if (chatToggle && this.config.toggleButtonAnimation > 0) {
+            // Re-apply the configured animation
+            chatToggle.classList.add(`animation-${this.config.toggleButtonAnimation}`);
+
+        }
+    }
+
+    setupTextBoxEventListeners() {
+        const textBoxClose = this.widget.querySelector('.chat-text-box-close');
+        const textBox = this.widget.querySelector('.chat-text-box');
+        
+        // Robust text box management
+        if (textBox) {
+            // Mark text box as persistent if showTextBox is true
+            if (this.config.showTextBox) {
+                textBox.setAttribute('data-persistent', 'true');
+                textBox.style.pointerEvents = 'auto';
+                textBox.style.visibility = 'visible';
+                textBox.style.opacity = '1';
+                
+                // Prevent any accidental removal (but respect manual close)
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'childList') {
+                            mutation.removedNodes.forEach((node) => {
+                                if (node === textBox && this.config.showTextBox && !this._textBoxManuallyClosed) {
+                                    console.warn('🛡️ Text box removal prevented - showTextBox is true');
+                                    // Re-add if accidentally removed (but not if manually closed)
+                                    if (!this.widget.querySelector('.chat-text-box')) {
+                                        this.widget.insertBefore(textBox, this.widget.firstChild);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
+                
+                observer.observe(this.widget, { childList: true, subtree: true });
+                
+
+            }
+            
+            // Setup close button functionality only if close button is enabled
+            if (textBoxClose && this.config.showTextBoxCloseButton) {
+                textBoxClose.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Only allow manual closing if user explicitly clicks close
+                    if (this.config.showTextBoxCloseButton) {
+                        // Set flag to indicate manual close
+                        this._textBoxManuallyClosed = true;
+                        
+                        // Direct close without transition
+                        textBox.style.display = 'none';
+                        
+        
+                    }
+                });
+                
+            } else {
+            }
+        }
+    }
+
+    // Setup click outside to close functionality
+    setupClickOutsideToClose() {
+        document.addEventListener('click', (event) => {
+            const chatWindow = this.widget.querySelector('.chat-window');
+            const chatToggle = this.widget.querySelector('.chat-toggle');
+            const isActive = chatWindow && chatWindow.classList.contains('active');
+            
+            // Only handle clicks when chat is open
+            if (!isActive) return;
+            
+            // Check if click is outside the chat widget
+            const isClickInsideWidget = this.widget.contains(event.target);
+            
+            // If click is outside the widget, close the chat
+            if (!isClickInsideWidget) {
+
+                this.closeChat();
+            }
+        });
+        
+
     }
 
     // Add this method to handle window resize
@@ -2765,6 +5421,106 @@ class EasyChatWidget {
         }
     }
 
+    // Scroll to show new message at the top of the view
+    scrollToShowNewMessage(messageElement) {
+        const chatMessages = this.widget.querySelector('.chat-messages');
+        if (!chatMessages || !messageElement) return;
+
+        // Use requestAnimationFrame for smooth scrolling
+        requestAnimationFrame(() => {
+            // Position the new message near the top of the view with small buffer
+            const messageTop = messageElement.offsetTop;
+            const targetScrollTop = Math.max(0, messageTop - 20); // 20px buffer from top
+            
+            chatMessages.scrollTo({
+                top: targetScrollTop,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    // Scroll to the bottom of chat container
+    scrollToBottom() {
+        const chatMessages = this.widget.querySelector('.chat-messages');
+        if (!chatMessages) return;
+
+        // Use requestAnimationFrame for smooth scrolling
+        requestAnimationFrame(() => {
+            chatMessages.scrollTo({
+                top: chatMessages.scrollHeight,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    // Scroll to show the last user message when opening chat
+    scrollToLastUserMessage() {
+        const chatMessages = this.widget.querySelector('.chat-messages');
+        if (!chatMessages) return;
+
+        // Find all user message rows (they contain .user-message as direct child)
+        const allMessageRows = chatMessages.querySelectorAll('.message-row');
+        const userMessageRows = Array.from(allMessageRows).filter(row => 
+            row.querySelector('.user-message')
+        );
+        
+        if (userMessageRows.length === 0) return;
+
+        // Get the last user message row
+        const lastUserMessage = userMessageRows[userMessageRows.length - 1];
+        
+        // Use requestAnimationFrame for smooth scrolling
+        requestAnimationFrame(() => {
+            // Position the last user message near the top of the view
+            const messageTop = lastUserMessage.offsetTop;
+            const targetScrollTop = Math.max(0, messageTop - 20); // 20px buffer from top
+            
+            chatMessages.scrollTo({
+                top: targetScrollTop,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    // Smart scroll to show latest message - minimal scrolling with spacer
+    scrollToLatestMessage() {
+        const chatMessages = this.widget.querySelector('.chat-messages');
+        if (!chatMessages) return;
+
+        // Skip scrolling during typewriter animation
+        if (this.isTypewriterActive) return;
+
+        // Use requestAnimationFrame for smooth scrolling
+        requestAnimationFrame(() => {
+            // Get the last actual message (not including spacer or typing indicator)
+            const messageRows = chatMessages.querySelectorAll('.message-row:not(#greeting-row)');
+            if (messageRows.length === 0) return;
+            
+            const lastMessage = messageRows[messageRows.length - 1];
+            if (!lastMessage) return;
+
+            const containerHeight = chatMessages.clientHeight;
+            const currentScrollTop = chatMessages.scrollTop;
+            
+            // Check if the last message is fully visible
+            const messageTop = lastMessage.offsetTop;
+            const messageBottom = lastMessage.offsetTop + lastMessage.offsetHeight;
+            const visibleTop = currentScrollTop;
+            const visibleBottom = currentScrollTop + containerHeight;
+            
+            // Only scroll if message is not fully visible
+            if (messageTop < visibleTop || messageBottom > visibleBottom) {
+                // Scroll to show the message with minimal movement
+                const targetScrollTop = Math.max(0, messageTop - 50); // 50px buffer from top
+                
+                chatMessages.scrollTo({
+                    top: targetScrollTop,
+                    behavior: 'smooth'
+                });
+            }
+        });
+    }
+
     // Add new method to handle scroll containment
     setupScrollContainment() {
         const chatMessages = this.widget.querySelector('.chat-messages');
@@ -2859,21 +5615,30 @@ class EasyChatWidget {
     }
 
     setupMessageActions(container, originalText) {
+        // Check if message actions should be shown
+        if (!this.config.showMessageActions) {
+            const actionsDiv = container.querySelector('.message-actions');
+            if (actionsDiv) {
+                actionsDiv.style.display = 'none';
+            }
+            return;
+        }
+        
         const copyBtn = container.querySelector('.copy-btn');
         const likeBtn = container.querySelector('.like-btn');
         const dislikeBtn = container.querySelector('.dislike-btn');
         const regenerateBtn = container.querySelector('.regenerate-btn');
         const messageDiv = container.querySelector('.bot-message');
 
-        // Copy button with check mark only
+        // Copy button with primary color styling
         copyBtn.addEventListener('click', () => {
             navigator.clipboard.writeText(messageDiv.textContent).then(() => {
-                copyBtn.classList.add('copied');
+                copyBtn.classList.add('copied', 'active');
                 copyBtn.innerHTML = `
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E" alt="✓">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E" alt="✓">
                 `;
                 setTimeout(() => {
-                    copyBtn.classList.remove('copied');
+                    copyBtn.classList.remove('copied', 'active');
                     copyBtn.innerHTML = `
                         <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">
                     `;
@@ -2956,6 +5721,22 @@ class EasyChatWidget {
                 container.classList.add('last');
             }
         });
+    }
+
+    // Hide greeting message action buttons when AI response comes
+    hideGreetingActions() {
+        const greetingActions = this.widget.querySelector('#greeting-row .greeting-actions');
+        if (greetingActions) {
+            // Add smooth hide animation
+            greetingActions.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            greetingActions.style.opacity = '0';
+            greetingActions.style.transform = 'translateY(-5px)';
+            
+            // Hide completely after animation
+            setTimeout(() => {
+                greetingActions.style.display = 'none';
+            }, 300);
+        }
     }
 
     // Add new method to update storage after regeneration
@@ -3101,12 +5882,16 @@ class EasyChatWidget {
 
     // Add new method to check if form is already showing
     isFormActive() {
-        return !!this.activeForm || !!this.widget.querySelector('.hubspot-form-container');
+        return !!this.activeForm || !!this.widget.querySelector('.hubspot-form-modal-overlay');
     }
 
-    // Add method to create and show HubSpot form
+    // Add method to create and show HubSpot form as modal overlay
     showHubSpotForm() {
-        if (!this.config.hubspot?.enabled) return;
+
+        if (!this.config.hubspot?.enabled) {
+
+            return;
+        }
         if (this.userManager.hasSubmittedForm()) return;
         if (this.isFormActive()) return; // Prevent multiple forms
 
@@ -3114,14 +5899,20 @@ class EasyChatWidget {
         this.disableChatFunctionality();
 
         // Remove any existing forms first (cleanup)
-        const existingForms = this.widget.querySelectorAll('.hubspot-form-row');
+        const existingForms = this.widget.querySelectorAll('.hubspot-form-modal-overlay');
         existingForms.forEach(form => form.remove());
 
-        const formHtml = `
-            <div class="hubspot-form-container" style="opacity: 0; transform: translateY(20px);">
+        // Create modal overlay within chat window but outside chat messages
+        const chatWindow = this.widget.querySelector('.chat-window');
+        const modalOverlay = document.createElement('div');
+        modalOverlay.className = 'hubspot-form-modal-overlay';
+        modalOverlay.innerHTML = `
+            <div class="hubspot-form-modal-backdrop"></div>
+            <div class="hubspot-form-modal-container">
+                <div class="hubspot-form-modal-content">
                 <div class="form-header">
-                    <h3>Contact Us</h3>
-                    <p>Please fill out the form below and we'll get back to you shortly.</p>
+                        <h3>${this.config.formTitle}</h3>
+                        <p>${this.config.formSubtitle}</p>
                 </div>
                 <form id="hubspotForm" class="hubspot-form">
                     <div class="form-group">
@@ -3144,75 +5935,206 @@ class EasyChatWidget {
                     </div>
                     <button type="submit" id="submitButton">Submit</button>
                 </form>
+                </div>
             </div>
         `;
 
-        const messageRow = document.createElement('div');
-        messageRow.className = 'message-row hubspot-form-row';
-        messageRow.innerHTML = formHtml;
-        
-        const chatMessages = this.widget.querySelector('.chat-messages');
-        const typingIndicator = this.widget.querySelector('.typing-indicator');
-        chatMessages.insertBefore(messageRow, typingIndicator);
+        // Add modal overlay to the chat window
+        chatWindow.appendChild(modalOverlay);
 
         // Store reference to active form
-        this.activeForm = messageRow;
+        this.activeForm = modalOverlay;
 
-        // Add enhanced form styles
-        const formStyles = document.createElement('style');
-        formStyles.textContent = `
-            .hubspot-form-container {
-                background: #fff;
-                padding: 20px;
-                border-radius: 12px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                margin: 15px 0;
-                max-width: 100%;
-                border: 1px solid #e4e6eb;
+        // Add comprehensive modal styles
+        const modalStyles = document.createElement('style');
+        modalStyles.textContent = `
+            /* Modal Overlay Styles - Within Chat Window */
+            .hubspot-form-modal-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: modalFadeIn 0.3s ease-out;
+                pointer-events: auto;
+                overflow: hidden;
+                overscroll-behavior: contain;
             }
-            
+
+            .hubspot-form-modal-backdrop {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                filter: none !important;
+            }
+
+            .hubspot-form-modal-container {
+                position: relative;
+                z-index: 1001;
+                width: 90%;
+                max-width: 320px;
+                max-height: 70%;
+                overflow-y: auto;
+                animation: modalSlideIn 0.3s ease-out;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+                scrollbar-color: #c1c1c1 #f1f1f1;
+            }
+
+            .hubspot-form-modal-container::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .hubspot-form-modal-container::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 3px;
+            }
+
+            .hubspot-form-modal-container::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 3px;
+            }
+
+            .hubspot-form-modal-container::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
+            }
+
+            .hubspot-form-modal-content {
+                background: #ffffff;
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                padding: 20px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                position: relative;
+                overflow: hidden;
+            }
+
+            /* Mobile-specific modal adjustments */
+            @media (max-width: 768px) {
+                .hubspot-form-modal-container {
+                    width: 95%;
+                    max-width: 300px;
+                    margin: 8px;
+                    max-height: 80%;
+                }
+                
+                .hubspot-form-modal-content {
+                    padding: 16px;
+                    border-radius: 10px;
+                }
+                
+                .form-header h3 {
+                    font-size: 16px;
+                }
+                
+                .form-header p {
+                    font-size: 12px;
+                }
+                
+                .hubspot-form .form-group {
+                    margin-bottom: 14px;
+                }
+                
+                .hubspot-form input {
+                    padding: 8px 10px;
+                    font-size: 13px;
+                    -webkit-appearance: none;
+                    border-radius: 6px;
+                }
+                
+                .hubspot-form button {
+                    padding: 10px 16px;
+                    font-size: 13px;
+                    -webkit-appearance: none;
+                    border-radius: 6px;
+                }
+            }
+
+            /* Prevent iOS zoom on input focus */
+            @media screen and (-webkit-min-device-pixel-ratio: 0) {
+                .hubspot-form input {
+                    font-size: 16px;
+                }
+            }
+
+            /* Modal animations */
+            @keyframes modalFadeIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+
+            @keyframes modalSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-20px) scale(0.95);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+
+            /* Form header styles */
             .form-header {
-                margin-bottom: 20px;
+                margin-bottom: 16px;
                 text-align: center;
             }
             
             .form-header h3 {
-                margin: 0 0 8px 0;
+                margin: 0 0 6px 0;
                 color: #333;
                 font-size: 18px;
+                font-weight: 600;
             }
             
             .form-header p {
                 margin: 0;
                 color: #666;
-                font-size: 14px;
+                font-size: 13px;
+                line-height: 1.3;
             }
             
+            /* Form styles */
             .hubspot-form .form-group {
-                margin-bottom: 20px;
+                margin-bottom: 16px;
             }
             
             .hubspot-form label {
                 display: block;
-                margin-bottom: 8px;
+                margin-bottom: 6px;
                 font-weight: 500;
                 color: #333;
-                font-size: 14px;
+                font-size: 13px;
             }
             
             .hubspot-form input {
                 width: 100%;
-                padding: 10px;
-                border: 1px solid #ddd;
+                padding: 10px 12px;
+                border: 2px solid #e1e5e9;
                 border-radius: 6px;
                 font-size: 14px;
-                transition: border-color 0.3s ease;
+                transition: all 0.3s ease;
+                background: #ffffff;
+                box-sizing: border-box;
             }
             
             .hubspot-form input:focus {
                 outline: none;
-                border-color: var(--chat-primary-color);
-                box-shadow: 0 0 0 2px rgba(var(--chat-primary-color-rgb), 0.1);
+                border-color: var(--chat-primary-color, #0084ff);
+                box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.1);
+                background: #ffffff;
             }
             
             .hubspot-form input::placeholder {
@@ -3227,29 +6149,62 @@ class EasyChatWidget {
             }
             
             .hubspot-form button {
-                background: var(--chat-primary-color);
+                background: var(--chat-primary-color, #0084ff);
                 color: white;
                 border: none;
-                padding: 12px 24px;
+                padding: 12px 20px;
                 border-radius: 6px;
                 cursor: pointer;
-                font-size: 16px;
-                font-weight: 500;
+                font-size: 14px;
+                font-weight: 600;
                 width: 100%;
                 transition: all 0.3s ease;
+                margin-top: 6px;
             }
             
             .hubspot-form button:hover {
                 opacity: 0.9;
                 transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0, 132, 255, 0.3);
+            }
+
+            .hubspot-form button:active {
+                transform: translateY(0);
             }
             
             .hubspot-form button:disabled {
                 opacity: 0.6;
                 cursor: not-allowed;
                 transform: none;
+                box-shadow: none;
             }
-            
+
+            /* Chat messages disabled when modal is active - no blur */
+            .chat-messages.modal-active {
+                pointer-events: none;
+                user-select: none;
+                -webkit-user-select: none;
+                opacity: 0.7;
+            }
+
+            .chat-messages.modal-active * {
+                pointer-events: none !important;
+            }
+
+            /* Ensure header is always interactive */
+            .chat-header {
+                filter: none !important;
+                pointer-events: auto !important;
+            }
+
+            .chat-header * {
+                filter: none !important;
+                pointer-events: auto !important;
+            }
+
+
+
+            /* Success message styles */
             .hubspot-form-success {
                 text-align: center;
                 padding: 20px;
@@ -3257,26 +6212,73 @@ class EasyChatWidget {
                 border-radius: 8px;
                 color: #155724;
                 margin: 10px 0;
+                border: 1px solid #c3e6cb;
+            }
+
+            .success-countdown {
+                margin-top: 15px;
+                font-size: 12px;
+                color: #6c757d;
+                opacity: 0.8;
+            }
+
+            .countdown-number {
+                font-weight: bold;
+                color: #155724;
             }
         `;
-        document.head.appendChild(formStyles);
+        document.head.appendChild(modalStyles);
 
-        // Animate form entrance
+        // Add modal-active class to chat messages
+        const messagesContainer = this.widget.querySelector('.chat-messages');
+        if (messagesContainer) {
+            messagesContainer.classList.add('modal-active');
+        }
+
+        // Animate modal entrance
         requestAnimationFrame(() => {
-            const formContainer = messageRow.querySelector('.hubspot-form-container');
-            formContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            formContainer.style.opacity = '1';
-            formContainer.style.transform = 'translateY(0)';
+            modalOverlay.style.opacity = '1';
         });
 
-        // Scroll to form with smooth animation
-        setTimeout(() => {
-            messageRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+        // Smart scroll prevention - only prevent when needed
+        this.preventScroll = (e) => {
+            const container = e.currentTarget.querySelector('.hubspot-form-modal-container');
+            if (container) {
+                const { scrollTop, scrollHeight, clientHeight } = container;
+                const isAtTop = scrollTop === 0;
+                const isAtBottom = scrollTop + clientHeight >= scrollHeight;
+                
+                // Allow scrolling within the form container
+                if (e.target.closest('.hubspot-form-modal-container')) {
+                    return true;
+                }
+                
+                // Prevent scrolling outside the form
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+            return true;
+        };
+
+        // Add scroll prevention to modal with error handling
+        try {
+            modalOverlay.addEventListener('wheel', this.preventScroll, { passive: false });
+            modalOverlay.addEventListener('touchmove', this.preventScroll, { passive: false });
+        } catch (error) {
+            console.warn('⚠️ Could not add scroll prevention listeners:', error);
+        }
 
         // Setup form handlers
-        const form = messageRow.querySelector('#hubspotForm');
+        const form = modalOverlay.querySelector('#hubspotForm');
+        if (form) {
         this.setupHubSpotFormHandlers(form);
+        }
+
+        // Store modal reference for cleanup
+        this.activeModal = modalOverlay;
+
+
     }
 
     // Add form validation and submission handlers
@@ -3340,6 +6342,11 @@ class EasyChatWidget {
                 });
 
                 if (response.ok) {
+                    // Update user ID with email if enabled
+                    if (this.config.useEmailAsUserId) {
+                        this.userManager.updateUserIdWithEmail(email);
+                    }
+                    
                     // Record successful submission
                     this.userManager.recordFormSubmission({
                         firstName: fullname.split(' ')[0],
@@ -3348,49 +6355,57 @@ class EasyChatWidget {
                         phone: phone.replace(/\D/g, '')
                     });
                     
-                    // Clear active form reference after successful submission
-                    this.activeForm = null;
+                    // Mark form as shown only after successful submission
+                    this.userManager.markFormAsShown();
                     
-                    // Show success message and cleanup
-                    const formContainer = this.widget.querySelector('.hubspot-form-container');
-                    if (formContainer) {
-                        formContainer.style.transition = 'opacity 0.3s ease';
-                        formContainer.style.opacity = '0';
-                        
-                        setTimeout(() => {
-                            formContainer.innerHTML = `
+                    // Show success message and cleanup for modal
+                    const modalContent = this.widget.querySelector('.hubspot-form-modal-content');
+                    if (modalContent) {
+                        modalContent.innerHTML = `
                                 <div class="hubspot-form-success" style="opacity: 0; transform: translateY(10px)">
                                     <h3>Thank you for your submission!</h3>
                                     <p>We'll get back to you shortly.</p>
+                                    <div class="success-countdown">Closing in <span class="countdown-number">2</span> seconds...</div>
                                 </div>
                             `;
                             
                             requestAnimationFrame(() => {
-                                const successMessage = formContainer.querySelector('.hubspot-form-success');
+                            const successMessage = modalContent.querySelector('.hubspot-form-success');
                                 successMessage.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                                 successMessage.style.opacity = '1';
                                 successMessage.style.transform = 'translateY(0)';
                             });
-                        }, 300);
 
-                        // Re-enable chat and cleanup
-                        setTimeout(() => {
-                            this.enableChatFunctionality();
-                            
-                            setTimeout(() => {
-                                const messageRow = formContainer.closest('.message-row');
-                                if (messageRow) {
-                                    messageRow.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                                    messageRow.style.opacity = '0';
-                                    messageRow.style.transform = 'translateY(-20px)';
-                                    
-                                    setTimeout(() => {
-                                        messageRow.remove();
-                                        this.activeForm = null; // Ensure form reference is cleared
-                                    }, 300);
-                                }
-                            }, 2000);
+                        // Countdown animation
+                        let countdown = 2;
+                        const countdownElement = modalContent.querySelector('.countdown-number');
+                        const countdownInterval = setInterval(() => {
+                            countdown--;
+                            if (countdownElement) {
+                                countdownElement.textContent = countdown;
+                            }
+                            if (countdown <= 0) {
+                                clearInterval(countdownInterval);
+                            }
                         }, 1000);
+
+                        // Remove modal and re-enable chat after 1.5 seconds for quick user experience
+                        setTimeout(() => {
+                            clearInterval(countdownInterval);
+                            this.removeActiveForm();
+                        }, 1500);
+
+                        // Fallback: Force close after 2 seconds if still open
+                        setTimeout(() => {
+                            clearInterval(countdownInterval);
+                            if (this.activeForm) {
+                                console.log('🔄 Force closing form after timeout');
+                                this.activeForm.remove();
+                                this.activeForm = null;
+                                this.activeModal = null;
+                                this.enableChatFunctionality();
+                            }
+                        }, 2000);
                     }
                 } else {
                     throw new Error('Submission failed');
@@ -3476,9 +6491,57 @@ class EasyChatWidget {
     // Add cleanup method for form removal
     removeActiveForm() {
         if (this.activeForm) {
-            this.activeForm.remove();
-            this.activeForm = null;
-            this.enableChatFunctionality();
+            try {
+                console.log('🔄 Removing active form...');
+                
+                // Remove modal-active class from chat messages
+                const messagesContainer = this.widget.querySelector('.chat-messages');
+                if (messagesContainer) {
+                    messagesContainer.classList.remove('modal-active');
+                }
+                
+                // Remove scroll prevention event listeners
+                if (this.activeModal && this.preventScroll) {
+                    try {
+                        this.activeModal.removeEventListener('wheel', this.preventScroll);
+                        this.activeModal.removeEventListener('touchmove', this.preventScroll);
+                    } catch (error) {
+                        console.warn('⚠️ Could not remove scroll prevention listeners:', error);
+                    }
+                }
+                
+                // Animate modal removal
+                this.activeForm.style.transition = 'opacity 0.3s ease';
+                this.activeForm.style.opacity = '0';
+                
+                setTimeout(() => {
+                    try {
+                        if (this.activeForm && this.activeForm.parentNode) {
+                            this.activeForm.remove();
+                            console.log('✅ Form removed successfully');
+                        }
+                        this.activeForm = null;
+                        this.activeModal = null;
+                        
+                        // Re-enable chat functionality
+                        this.enableChatFunctionality();
+                    } catch (error) {
+                        console.error('❌ Error during form cleanup:', error);
+                        // Force cleanup
+                        this.activeForm = null;
+                        this.activeModal = null;
+                        this.enableChatFunctionality();
+                    }
+                }, 300);
+            } catch (error) {
+                console.error('❌ Error in removeActiveForm:', error);
+                // Force cleanup
+                this.activeForm = null;
+                this.activeModal = null;
+                this.enableChatFunctionality();
+            }
+        } else {
+            console.log('⚠️ No active form to remove');
         }
     }
 }
@@ -3544,6 +6607,24 @@ class ChatUserManager {
         const submissions = JSON.parse(localStorage.getItem(this.formSubmissionsKey) || '[]');
         return submissions.includes(this.currentUser);
     }
+    
+    // Add method to check if form has been shown to user
+    hasFormBeenShown() {
+        const formShownKey = `chatFormShown_${this.currentUser}`;
+        return localStorage.getItem(formShownKey) === 'true';
+    }
+    
+    // Add method to mark form as shown
+    markFormAsShown() {
+        const formShownKey = `chatFormShown_${this.currentUser}`;
+        localStorage.setItem(formShownKey, 'true');
+    }
+    
+    // Add method to reset form shown status (for testing)
+    resetFormShownStatus() {
+        const formShownKey = `chatFormShown_${this.currentUser}`;
+        localStorage.removeItem(formShownKey);
+    }
 
     // Add method to record form submission
     recordFormSubmission(formData) {
@@ -3569,6 +6650,16 @@ class ChatUserManager {
             path: this.path,
             chatHistory: JSON.parse(localStorage.getItem(historyKey)) || []
         };
+    }
+    
+    updateUserIdWithEmail(email) {
+        const storageKey = this.config.separateSubpageHistory 
+            ? `currentChatUser_${this.domain}${this.path}`
+            : `currentChatUser_${this.domain}`;
+        
+        // Update the stored user ID with email
+        localStorage.setItem(storageKey, email);
+        this.currentUser = email;
     }
 }
 
@@ -3664,7 +6755,7 @@ class ChatStorageManager {
         try {
             localStorage.removeItem(historyKey);
             localStorage.setItem(historyKey, JSON.stringify([]));
-            console.log('Local storage cleared successfully');
+
         } catch (error) {
             console.error('Error clearing local storage:', error);
         }

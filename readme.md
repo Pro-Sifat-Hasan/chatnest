@@ -39,7 +39,7 @@ ChatNest is a lightweight, customizable, and easy-to-integrate JavaScript widget
 To include ChatNest in your project, add the following CDN link to your HTML file:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@6.0.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@2.5.6"></script>
 ```
 
 Alternatively, you can install it using npm:
@@ -76,7 +76,7 @@ Below are the available configuration options you can set when initializing Easy
 | `botImage`               | `string`           | ![default](data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath fill="%23fff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"%3E%3C/path%3E%3C/svg%3E) | The image displayed for the bot in the chat.                                                           |
 | `greeting`               | `string`           | `'Hello! How can I help you today?'`         | The initial greeting message displayed to users when they open the chat widget.                      |
 | `placeholder`            | `string`           | `'Type your message here...'`               | Placeholder text shown in the message input field.                                                   |
-| `primaryColor`           | `string`           | `'#0084ff'`                                  | Primary color used for styling widget buttons, highlights, and other accents.                        |
+| `primaryColor`           | `string`           | `'#0084ff'`                                  | Primary color used for styling widget buttons, highlights, and other accents. Supports hex colors and CSS gradients (e.g., `'linear-gradient(to right, #2563eb, #9333ea)'`). |
 | `fontSize`               | `string`           | `clampFontSize(config.fontSize || 14)`       | Font size for text in the widget, automatically clamped to prevent extremes.                         |
 | `width`                  | `string`           | `'400px'` (300px - 600px)                   | Width of the chat widget, restricted between 300px and 600px for responsive layouts.                  |
 | `height`                 | `string`           | `'600px'` (400px - 800px)                   | Height of the chat widget, restricted between 400px and 800px for optimal usability.                  |
@@ -88,6 +88,7 @@ Below are the available configuration options you can set when initializing Easy
 | `separateSubpageHistory` | `boolean`          | `false`                                      | If `true`, chat history is stored separately for each subpage of the application.                     |
 | `enableTypewriter`       | `boolean`          | `true`                                       | Enables a typewriter effect for bot responses.                                                        |
 | `typewriterSpeed`        | `object`           | `{ min: 30, max: 70 }`                       | Speed range (in milliseconds) for the typewriter effect.                                              |
+| `typewritewithscroll`    | `boolean`          | `false`                                      | When `true`: AI response uses typewriter effect WITH scrolling. When `false`: typewriter WITHOUT scrolling. |
 | `chips`                  | `array`            | `[]`                                         | Array of predefined response options displayed as clickable chips.                                    |
 | `customStyles`           | `object`           | `{}`                                         | Custom CSS styles for widget components.                                                             |
 | `onInit`                 | `function`         | `null`                                       | Callback function executed when the widget is initialized.                                            |
@@ -109,70 +110,137 @@ Below are the available configuration options you can set when initializing Easy
 | `hubspot.formShownToUsers` | `Set`           | `new Set()`                                                                                          | Tracks users who have been shown the HubSpot form.                                                   |
 | `hubspot.formSubmittedUsers` | `Set`        | `new Set()`                                                                                          | Tracks users who have submitted the HubSpot form.                                                    |
 | `position`              | `string`           | `'bottom-right'`                                                                                     | Specifies the position of the HubSpot form on the screen.                                            |
+| `enableFileUpload`      | `boolean`          | `true`                                                                                               | Show/hide file upload button. Set to `false` to disable file upload functionality.                    |
+| `enableDeleteButton`    | `boolean`          | `true`                                                                                               | Show/hide delete chat history button. Set to `false` to hide the delete button.                      |
+| `useMultipartFormData`  | `boolean`          | `true`                                                                                               | Use multipart form data for API calls. Required for file uploads and some API endpoints.             |
+| `apiDataFormat`         | `string`           | `'json'`                                                                                             | API data format: `'json'` or `'form-data'`. Use `'form-data'` for multipart requests.               |
+| `typingIndicatorColor`  | `string`           | `'#666'`                                                                                             | Color for the typing indicator dots. Use a single color for all 3 dots.                            |
+| `showTypingText`        | `boolean`          | `true`                                                                                               | Show/hide the "AI is thinking..." text below the typing indicator dots.                            |
+| `toggleButtonIcon`      | `string`           | `null`                                                                                               | Custom icon for the toggle button when closed. When open, shows a down arrow. Supports emoji, image URL, or SVG.                              |
+| `chatBackgroundImage`   | `string`           | `null`                                                                                               | Custom background image for the chat messages section. Supports image URLs.                                                              |
+| `chatBackgroundColor`   | `string`           | `'#ffffff'`                                                                                          | Custom background color for the chat messages section. Used when no image is set. Default: white.                                        |
+| `sendButtonIconSize`    | `number`           | `24`                                                                                                 | Size of the send button icon in pixels. Default: 24px.                                                                                  |
+| `enableEnhancedMobileInput` | `boolean`      | `true`                                                                                               | Enhanced mobile input handling for better touch interaction and focus management. Default: true.                                        |
+| `aiAvatar`                  | `string`       | `null`                                                                                               | AI avatar for bot messages. Supports emoji, image URL, or SVG. Default: robot emoji (🤖).                                              |
+| `showAiAvatar`              | `boolean`      | `true`                                                                                               | Show AI avatar in bot messages. Default: true.                                                                                        |
+| `botSubname`                | `string`       | `null`                                                                                               | Subname or descriptive text for the bot (displayed in chat header under bot name). Default: null.                                    |
+| `showBotSubname`            | `boolean`      | `true`                                                                                               | Show bot subname in chat header. Default: true.                                                                                        |
+| `showFormOnStart`           | `boolean`      | `true`                                                                                               | Show HubSpot form when chat opens (instead of trigger words). Default: true.                                                          |
+| `useEmailAsUserId`          | `boolean`      | `true`                                                                                               | Use email from form as user ID. Default: true.                                                                                         |
+| `showBranding`              | `boolean`      | `true`                                                                                               | Show/hide the branding section below the chat input. Default: true.                                                                   |
+| `brandingText`              | `string`       | `'Powered by NeuroBrain'`                                                                            | Company name for branding. The widget will show "Powered by [Company]" where [Company] is extracted from this text (removing "Powered by" prefix if present). Company name will be bold and linked. |
+| `brandingUrl`               | `string`       | `'https://neurobrains.co/'`                                                                         | URL that the branding text links to. Default: 'https://neurobrains.co/'.                                                             |
+| `showMessageActions`        | `boolean`      | `true`                                                                                               | Show/hide message action buttons (copy, like, dislike, regenerate) on AI responses. Default: true.                                   |
+| `showTextBox`               | `boolean`      | `true`                                                                                               | Show/hide the floating text box above the toggle button. Default: true.                                                               |
+| `textBoxMessage`            | `string`       | `'Hi there! If you need any assistance, I am always here.'`                                        | Main text message displayed in the floating text box above the toggle button.                                                        |
+| `textBoxSubMessage`         | `string`       | `'💬 24/7 Live Chat Support'`                                                                        | Sub message displayed in the text box after the separator line.                                                                       |
+| `showTextBoxCloseButton`    | `boolean`      | `true`                                                                                               | Show/hide the close button on the text box. Default: true.                                                                           |
+| `toggleButtonAnimation`     | `number`       | `4`                                                                                                  | Toggle button animation type: 0=none, 1=pulse, 2=bounce, 3=shake, 4=infinity(grow-shrink), 5=rotate. Default: 4 (infinity effect). |
+| `toggleButtonSize`          | `number`       | `60`                                                                                                 | Toggle button size in pixels. Range: 40-80px. Default: 60px.                                                                        |
+| `toggleButtonBottomMargin`  | `number`       | `50`                                                                                                 | Bottom margin of toggle button in pixels. Range: 10-50px. Default: 50px.                                                           |
+| `toggleButtonRightMargin`   | `number`       | `30`                                                                                                 | Right margin of toggle button in pixels. Range: 10-100px. Default: 30px.                                                          |
+| `websiteBottomSpacing`      | `number`       | `0`                                                                                                  | Additional bottom spacing for website integration in pixels. Range: 0-100px. Default: 0px.                                         |
+| `textBoxSpacingFromToggle`  | `number`       | `0`                                                                                                  | Spacing between text box and toggle button in pixels. Range: 0-30px. Default: 0px (touching).                                    |
+| `textBoxTextColor`          | `string`       | `'primary'`                                                                                          | Text color for text box content. Use 'primary' for primary color, 'default' for standard colors, or any CSS color value.         |
 
 
 
-### Notes:
-- **Font Size Clamping**: The `fontSize` option is dynamically clamped to avoid excessively large or small font sizes, ensuring a consistent user experience.
-- **Separate Subpage History**: The `separateSubpageHistory` option lets you isolate chat histories for different pages or contexts within your app.
-- **Default API Endpoints**: The `deleteEndpoint` dynamically derives its value from the `apiEndpoint` if no custom endpoint is provided, ensuring flexibility and ease of configuration.
+### Key Features:
+- **Responsive Design**: Automatically adapts to different screen sizes and devices
+- **Smart Positioning**: Prevents text box cutoff with dynamic max-width calculations
+- **Z-Index Management**: Optimal layering for clean interface without overlapping elements
+- **Gradient Support**: Text box content supports CSS gradients when using gradient primary colors
+- **Click Outside to Close**: Chat window closes when clicking outside the widget
+- **Touch Positioning**: Text box can touch toggle button for seamless integration
 
+## New Features (v2.5.0+)
 
-## Example Initialization with Full Configuration
+### File Upload Support
+ChatNest now supports file uploads with the following capabilities:
+- **Supported Formats**: Images (JPG, PNG, GIF), PDFs, Word documents (DOC, DOCX), and text files (TXT)
+- **Multiple Files**: Select and upload multiple files simultaneously
+- **File Preview**: See selected files with size information before sending
+- **File Management**: Remove individual files from selection
+- **Configurable**: Enable/disable file upload functionality with `enableFileUpload` option
+
+### Enhanced API Integration
+- **Multipart Form Data**: Full support for multipart/form-data format for file uploads
+- **422 Error Resolution**: Proper handling of API data format requirements to prevent 422 errors
+- **Flexible Data Format**: Choose between JSON and multipart form data with `apiDataFormat` option
+- **Request/Response Mapping**: Customize field names to match your API's expected format
+
+### UI Improvements
+- **Black Action Icons**: Professional black 3-dot menu icons for better visibility
+- **Configurable Buttons**: Show/hide file upload and delete buttons as needed
+- **Better Error Handling**: Enhanced error messages and user feedback
+- **Fixed Typing Indicator**: Typing indicator now only shows when AI is actively processing, not on widget initialization
+- **Custom Toggle Button Icon**: Customize the opening chat window circle logo with emoji, image, or SVG
+- **Custom Chat Background**: Add custom background images or colors to the chat messages section for better branding and visual appeal
+- **AI Avatar System**: Customizable AI avatar with bot name display inside each bot message bubble, and optional subname in the header
+- **Customizable Send Button**: Adjust the size of the send button icon for better visibility and user experience
+- **Enhanced Mobile Input**: Improved mobile input handling with auto-focus, focus restoration, and better touch interaction
+- **HubSpot Form Integration**: Show form on chat open with Name, Email, Phone fields, save to HubSpot, and use email as user ID
+- **Typewriter Scroll Control**: Configure whether typewriter effect scrolls with text or remains static with `typewritewithscroll` option
+- **Auto Scroll to Bottom**: Chat window automatically scrolls to bottom when opened for better user experience
+
+### Configuration Examples
+
+#### Basic Configuration Examples
+```javascript
+// File upload with gradient text
+const chatWidget = new EasyChatWidget({
+    enableFileUpload: true,
+    showTextBox: true,
+    textBoxTextColor: 'primary',
+    primaryColor: 'linear-gradient(45deg, #2563eb, #9333ea)',
+    apiEndpoint: 'https://your-api.com/chat'
+});
+
+// Custom branding with gradient
+const chatWidget = new EasyChatWidget({
+    showBranding: true,
+    brandingText: 'Your Company',
+    brandingUrl: 'https://yourcompany.com',
+    primaryColor: 'linear-gradient(to right, #2563eb, #9333ea)',
+    apiEndpoint: 'https://your-api.com/chat'
+});
+
+// Text box with perfect positioning
+const chatWidget = new EasyChatWidget({
+    showTextBox: true,
+    textBoxMessage: 'Need help? We\'re here!',
+    textBoxSubMessage: '💬 24/7 Support',
+    toggleButtonBottomMargin: 50,
+    textBoxSpacingFromToggle: 0, // Touching
+    apiEndpoint: 'https://your-api.com/chat'
+});
+```
+
+## Complete Example
 
 ```javascript
 document.addEventListener('DOMContentLoaded', () => {
     const chatWidget = new EasyChatWidget({
+        // Basic configuration
         botName: 'Customer Support Bot',
-        botImage: 'https://example.com/bot-avatar.png',
         greeting: 'Welcome! How can we assist you?',
-        placeholder: 'Type your message here...',
-        primaryColor: '#00796b',
-        fontSize: '16px',
-        width: '500px',
-        height: '700px',
-        position: 'bottom-right' // Position the form at the bottom-right of the screen (eg: bottom-left, bottom-center)
-        customStyles: {
-            backgroundColor: '#f0f0f0',
-            color: '#333',
-        },
-        showTimestamp: true,
-        enableTypingIndicator: true,
-        enableMarkdown: true,
-        enableHistory: true,
-        maxHistoryLength: 200,
-        separateSubpageHistory: false,
-        enableTypewriter: true,
-        typewriterSpeed: { 
-            min: 50, 
-            max: 100 
-        },
-        chips: ['Order Status', 'Product Inquiry', 'Support'],
-        apiEndpoint: 'https://api.example.com/chat',
-        apiKey: 'your-api-key-here',
-        apiHeaders: { 
-            'Content-Type': 'application/json' 
-        },
-        apiRequestFormat: { 
-            query: 'query', 
-            userId: 'userId', 
-            domain: 'domain' 
-        },
-        apiResponseFormat: { 
-            response: 'response' 
-        },
-        apiMethod: 'POST',
-        apiTimeout: 30000,
-        deleteEndpoint: 'https://api.example.com/delete-history',
-        feedbackEndpoint: 'https://api.example.com/feedback',
-        hubspot: {
-            enabled: true, // Enable HubSpot integration
-            portalId: '123456', // Replace with your HubSpot portal ID
-            formGuid: 'abcdef12-3456-7890-ghij-klmnopqrstuv', // Replace with your form GUID
-            triggerKeywords: ['demo', 'pricing'], // Custom trigger keywords
-            formShownToUsers: new Set(), 
-            formSubmittedUsers: new Set()
-        },
+        primaryColor: 'linear-gradient(45deg, #2563eb, #9333ea)',
+        
+        // Text box with gradient support
+        showTextBox: true,
+        textBoxMessage: 'Need help? We\'re here!',
+        textBoxSubMessage: '💬 24/7 Support',
+        textBoxTextColor: 'primary',
+        
+        // Perfect positioning
+        toggleButtonBottomMargin: 50,
+        textBoxSpacingFromToggle: 0,
+        
+        // API configuration
+        apiEndpoint: 'https://your-api.com/chat',
+        enableFileUpload: true,
+        
+        // Callbacks
         onInit: () => console.log('Chat widget initialized'),
         onMessage: (message) => console.log('Message received:', message),
         onError: (error) => console.error('An error occurred:', error),
@@ -187,3 +255,52 @@ If you enable Markdown rendering (`enableMarkdown: true`), the widget will load 
 ## Look of the chat widget
 
 ![ChatNest](https://i.ibb.co.com/HPJ7WVL/Screenshot-2024-11-06-090205.png)
+
+## Troubleshooting
+
+### 422 Error (Unprocessable Entity)
+This usually occurs when the API expects different data format. Try:
+
+1. Set `useMultipartFormData: true` for file uploads
+2. Set `apiDataFormat: 'form-data'` for multipart requests
+3. Check your `apiRequestFormat` mapping matches your API expectations
+
+### File Upload Issues
+1. Ensure `enableFileUpload: true`
+2. Set `useMultipartFormData: true`
+3. Set `apiDataFormat: 'form-data'`
+4. Check file size limits on your server
+
+### API Connection Issues
+1. Verify `apiEndpoint` URL is correct
+2. Check CORS settings on your server
+3. Ensure `apiKey` is valid (if required)
+4. Check network connectivity
+
+### Common Configuration Fixes
+
+#### For APIs expecting multipart form data:
+```javascript
+{
+    useMultipartFormData: true,
+    apiDataFormat: 'form-data',
+    apiRequestFormat: {
+        query: 'message',  // Match your API's field name
+        userId: 'user_id',
+        domain: 'domain'
+    }
+}
+```
+
+#### For APIs expecting JSON:
+```javascript
+{
+    useMultipartFormData: false,
+    apiDataFormat: 'json',
+    apiRequestFormat: {
+        query: 'message',
+        userId: 'user_id',
+        domain: 'domain'
+    }
+}
+```

@@ -1,6 +1,6 @@
 {
     "name": "chatnest",
-    "version": "6.2.3",
+    "version": "2.5.7",
     "description": "A lightweight, customizable, and responsive chat widget for modern web applications.",
     "main": "dist/chat-widget.min.js",
     "scripts": {
@@ -28,7 +28,6 @@
         "webpack-cli": "^5.1.4"
     },
     "dependencies": {
-        "easy-chat-widget": "^1.0.0",
         "marked": "^9.1.6"
     },
     "repository": {
