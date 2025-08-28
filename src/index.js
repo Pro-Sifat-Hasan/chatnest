@@ -392,7 +392,7 @@ class EasyChatWidget {
                 formSubmittedUsers: new Set() // Track users who've submitted the form
             },
             position: config.position || 'bottom-right',
-            enableServerHistoryDelete: true, // New option to control backend history deletion
+            enableServerHistoryDelete: config.enableServerHistoryDelete !== undefined ? config.enableServerHistoryDelete : false, // New option to control backend history deletion
             // New configuration options for file upload and delete buttons
             enableFileUpload: config.enableFileUpload !== false, // Default to true
             enableDeleteButton: config.enableDeleteButton !== false, // Default to true
@@ -604,55 +604,131 @@ class EasyChatWidget {
                 line-height: 1;
             }
 
-            /* Toggle Button Animations */
+            /* Toggle Button Animations - Enhanced for production compatibility */
             .chat-toggle.animation-1 {
-                animation: pulseAnimation 2s infinite;
+                animation: pulseAnimation 2s infinite !important;
+                -webkit-animation: pulseAnimation 2s infinite !important;
             }
 
             .chat-toggle.animation-2 {
-                animation: bounceAnimation 2s infinite;
+                animation: bounceAnimation 2s infinite !important;
+                -webkit-animation: bounceAnimation 2s infinite !important;
             }
 
             .chat-toggle.animation-3 {
-                animation: shakeAnimation 3s infinite;
+                animation: shakeAnimation 3s infinite !important;
+                -webkit-animation: shakeAnimation 3s infinite !important;
             }
 
             .chat-toggle.animation-4 {
-                animation: infinityAnimation 3s infinite;
+                animation: infinityAnimation 3s infinite !important;
+                -webkit-animation: infinityAnimation 3s infinite !important;
             }
 
             .chat-toggle.animation-5 {
-                animation: rotateAnimation 4s infinite linear;
+                animation: rotateAnimation 4s infinite linear !important;
+                -webkit-animation: rotateAnimation 4s infinite linear !important;
             }
 
-            /* Keyframe Animations */
+            /* Keyframe Animations - Enhanced with vendor prefixes for production compatibility */
             @keyframes pulseAnimation {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.15); }
+                0%, 100% { 
+                    transform: scale(1); 
+                    -webkit-transform: scale(1);
+                }
+                50% { 
+                    transform: scale(1.15); 
+                    -webkit-transform: scale(1.15);
+                }
+            }
+
+            @-webkit-keyframes pulseAnimation {
+                0%, 100% { -webkit-transform: scale(1); }
+                50% { -webkit-transform: scale(1.15); }
             }
 
             @keyframes bounceAnimation {
-                0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-                40% { transform: translateY(-10px); }
-                60% { transform: translateY(-5px); }
+                0%, 20%, 50%, 80%, 100% { 
+                    transform: translateY(0); 
+                    -webkit-transform: translateY(0);
+                }
+                40% { 
+                    transform: translateY(-10px); 
+                    -webkit-transform: translateY(-10px);
+                }
+                60% { 
+                    transform: translateY(-5px); 
+                    -webkit-transform: translateY(-5px);
+                }
+            }
+
+            @-webkit-keyframes bounceAnimation {
+                0%, 20%, 50%, 80%, 100% { -webkit-transform: translateY(0); }
+                40% { -webkit-transform: translateY(-10px); }
+                60% { -webkit-transform: translateY(-5px); }
             }
 
             @keyframes shakeAnimation {
-                0%, 100% { transform: translateX(0); }
-                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-                20%, 40%, 60%, 80% { transform: translateX(5px); }
+                0%, 100% { 
+                    transform: translateX(0); 
+                    -webkit-transform: translateX(0);
+                }
+                10%, 30%, 50%, 70%, 90% { 
+                    transform: translateX(-5px); 
+                    -webkit-transform: translateX(-5px);
+                }
+                20%, 40%, 60%, 80% { 
+                    transform: translateX(5px); 
+                    -webkit-transform: translateX(5px);
+                }
+            }
+
+            @-webkit-keyframes shakeAnimation {
+                0%, 100% { -webkit-transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { -webkit-transform: translateX(-5px); }
+                20%, 40%, 60%, 80% { -webkit-transform: translateX(5px); }
             }
 
             @keyframes infinityAnimation {
-                0%, 100% { transform: scale(1); }
-                25% { transform: scale(1.2); }
-                50% { transform: scale(1); }
-                75% { transform: scale(1.2); }
+                0%, 100% { 
+                    transform: scale(1); 
+                    -webkit-transform: scale(1);
+                }
+                25% { 
+                    transform: scale(1.2); 
+                    -webkit-transform: scale(1.2);
+                }
+                50% { 
+                    transform: scale(1); 
+                    -webkit-transform: scale(1);
+                }
+                75% { 
+                    transform: scale(1.2); 
+                    -webkit-transform: scale(1.2);
+                }
+            }
+
+            @-webkit-keyframes infinityAnimation {
+                0%, 100% { -webkit-transform: scale(1); }
+                25% { -webkit-transform: scale(1.2); }
+                50% { -webkit-transform: scale(1); }
+                75% { -webkit-transform: scale(1.2); }
             }
 
             @keyframes rotateAnimation {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
+                from { 
+                    transform: rotate(0deg); 
+                    -webkit-transform: rotate(0deg);
+                }
+                to { 
+                    transform: rotate(360deg); 
+                    -webkit-transform: rotate(360deg);
+                }
+            }
+
+            @-webkit-keyframes rotateAnimation {
+                from { -webkit-transform: rotate(0deg); }
+                to { -webkit-transform: rotate(360deg); }
             }
 
             /* Text Box Styles - Positioned below chat window for better visibility */
@@ -1115,11 +1191,18 @@ class EasyChatWidget {
                 font-size: 14px;
                 line-height: 1.5;
                 color: #000000;
+                box-shadow: none !important;
                 ${this.config.chatBackgroundImage ? `
-                backdrop-filter: blur(2px);
-                background: rgba(240, 242, 245, 0.95);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                background: rgba(240, 242, 245, 0.95) !important;
+                box-shadow: none !important;
                 ` : ''}
+            }
+            
+            /* Ensure bot message has no shadow */
+            .chat-widget .bot-message,
+            .chat-widget .ai-message {
+                box-shadow: none !important;
+                background: #f0f2f5 !important;
             }
 
             .bot-message img {
@@ -1151,7 +1234,6 @@ class EasyChatWidget {
                 border-top-right-radius: 0;
                 text-align: left;
                 ${this.config.chatBackgroundImage ? `
-                backdrop-filter: blur(2px);
                 background: rgba(var(--chat-primary-color-rgb, 0, 132, 255), 0.95);
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
                 ` : ''}
@@ -1246,6 +1328,11 @@ class EasyChatWidget {
                 }
             }
             
+            /* Remove greeting message shadow */
+            #greeting-row .bot-message {
+                box-shadow: none !important;
+            }
+            
             /* AI Avatar Styling */
             .bot-message-container {
                 display: flex;
@@ -1278,29 +1365,34 @@ class EasyChatWidget {
                 position: relative;
             }
             
-            /* Enhanced avatar type styles */
+            /* Enhanced avatar type styles with fallback colors */
             .ai-avatar-icon.emoji-avatar {
-                background: transparent;
+                background: transparent !important;
                 font-size: 18px;
                 color: inherit;
                 box-shadow: none;
             }
             
             .ai-avatar-icon.text-avatar {
-                background: var(--chat-primary-color, #0084ff);
+                background: var(--chat-primary-color, ${this.config.primaryColor || '#0084ff'}) !important;
                 font-size: 14px;
                 font-weight: 600;
                 color: white;
             }
             
             .ai-avatar-icon.image-avatar {
-                background: transparent;
+                background: transparent !important;
                 padding: 0;
             }
             
             .ai-avatar-icon.svg-avatar {
-                background: var(--chat-primary-color, #0084ff);
+                background: var(--chat-primary-color, ${this.config.primaryColor || '#0084ff'}) !important;
                 padding: 4px;
+            }
+            
+            /* Fallback for when CSS variables don't load properly */
+            .chat-widget .ai-avatar-icon:not(.emoji-avatar):not(.image-avatar) {
+                background-color: ${this.config.primaryColor || '#0084ff'} !important;
             }
             
             .ai-avatar-icon img {
@@ -1635,29 +1727,34 @@ class EasyChatWidget {
                 }
                 
                 /* Compact mobile typing indicator */
-                .typing-indicator {
-                    margin: 2px 0 !important;
+                .chat-widget .typing-indicator {
+                    margin: 10px 0 !important;
                     margin-left: 0 !important;
                     margin-right: auto !important;
-                    padding: 4px 8px !important;
-                    max-width: 42px !important;
-                    min-width: 36px !important;
-                    height: 24px !important;
-                    border-radius: 12px !important;
-                    border-top-left-radius: 4px !important;
+                    padding: 12px 16px !important;
+                    max-width: 80px !important;
+                    min-width: 75px !important;
+                    height: 40px !important;
+                    border-radius: 20px !important;
+                    border-top-left-radius: 6px !important;
                 }
                 
-                .typing-indicator.active {
+                .chat-widget .typing-indicator.active {
                     display: flex !important;
                     align-items: center !important;
                     justify-content: center !important;
                 }
                 
-                .typing-indicator span {
-                    width: 4px !important;
-                    height: 4px !important;
-                    margin: 0 0.5px !important;
-                    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1) !important;
+                .chat-widget .typing-indicator span {
+                    width: 8px !important;
+                    height: 8px !important;
+                    margin: 0 2px !important;
+                    box-shadow: none !important;
+                    animation: chatWidgetTypingPulse 1.2s infinite ease-in-out !important;
+                    -webkit-animation: chatWidgetTypingPulse 1.2s infinite ease-in-out !important;
+                    animation-name: chatWidgetTypingPulse !important;
+                    -webkit-animation-name: chatWidgetTypingPulse !important;
+                    background: #666 !important;
                 }
                 
                 /* Mobile chat window adjustments */
@@ -1716,29 +1813,31 @@ class EasyChatWidget {
                 filter: brightness(0) invert(1) !important;
             }
 
-            /* Perfect centered typing indicator */
-            .typing-indicator {
-                display: none;
-                padding: 6px 10px;
-                background: var(--chat-bot-message-bg);
-                border-radius: 14px;
-                border-top-left-radius: 4px;
-                align-self: flex-start;
-                margin: 4px 0;
-                margin-left: 0;
-                margin-right: auto;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-                border: 1px solid #e4e6eb;
-                position: relative;
-                overflow: visible;
-                max-width: 50px;
-                min-width: 42px;
-                width: fit-content;
-                height: 28px;
+            /* ENHANCED TYPING INDICATOR - Bigger and More Robust */
+            .chat-widget .typing-indicator {
+                display: none !important;
+                padding: 16px 20px !important;
+                background: #f0f2f5 !important;
+                border-radius: 24px !important;
+                border-top-left-radius: 8px !important;
+                align-self: flex-start !important;
+                margin: 12px 0 !important;
+                margin-left: 0 !important;
+                margin-right: auto !important;
+                box-shadow: none !important;
+                border: 1px solid #e4e6eb !important;
+                position: relative !important;
+                overflow: visible !important;
+                max-width: 100px !important;
+                min-width: 85px !important;
+                width: fit-content !important;
+                height: 50px !important;
                 /* Flexbox for perfect centering */
-                align-items: center;
-                justify-content: center;
-                animation: fadeInUp 0.3s ease-out;
+                align-items: center !important;
+                justify-content: center !important;
+                animation: fadeInUp 0.4s ease-out !important;
+                -webkit-animation: fadeInUp 0.4s ease-out !important;
+                z-index: 10 !important;
             }
             
             .typing-indicator.active {
@@ -1757,39 +1856,88 @@ class EasyChatWidget {
                 border-radius: 20px;
             }
 
-            .typing-indicator span {
-                width: 5px;
-                height: 5px;
-                background: var(--typing-dot-color, #666);
-                display: inline-block;
-                border-radius: 50%;
-                margin: 0 1px;
-                position: relative;
-                animation: typingPulse 1.2s infinite ease-in-out;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-                z-index: 1;
+            .chat-widget .typing-indicator span {
+                width: 10px !important;
+                height: 10px !important;
+                background: #666 !important;
+                display: inline-block !important;
+                border-radius: 50% !important;
+                margin: 0 3px !important;
+                position: relative !important;
+                box-shadow: none !important;
+                z-index: 11 !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                transform: scale(1) !important;
+                -webkit-transform: scale(1) !important;
+                /* Multiple animation fallbacks */
+                animation: chatWidgetTypingPulse 1.2s infinite ease-in-out !important;
+                -webkit-animation: chatWidgetTypingPulse 1.2s infinite ease-in-out !important;
+                animation-fill-mode: both !important;
+                -webkit-animation-fill-mode: both !important;
             }
 
-            .typing-indicator span:nth-child(1) { 
-                animation-delay: 0s; 
-                background: var(--typing-dot-color, #666);
+            .chat-widget .typing-indicator span:nth-child(1) { 
+                animation-delay: 0s !important; 
+                -webkit-animation-delay: 0s !important;
+                background: #666 !important;
+                animation-name: chatWidgetTypingPulse !important;
+                -webkit-animation-name: chatWidgetTypingPulse !important;
             }
-            .typing-indicator span:nth-child(2) { 
-                animation-delay: 0.3s; 
-                background: var(--typing-dot-color, #666);
+            .chat-widget .typing-indicator span:nth-child(2) { 
+                animation-delay: 0.3s !important; 
+                -webkit-animation-delay: 0.3s !important;
+                background: #666 !important;
+                animation-name: chatWidgetTypingPulse !important;
+                -webkit-animation-name: chatWidgetTypingPulse !important;
             }
-            .typing-indicator span:nth-child(3) { 
-                animation-delay: 0.6s;
-                background: var(--typing-dot-color, #666);
+            .chat-widget .typing-indicator span:nth-child(3) { 
+                animation-delay: 0.6s !important;
+                -webkit-animation-delay: 0.6s !important;
+                background: #666 !important;
+                animation-name: chatWidgetTypingPulse !important;
+                -webkit-animation-name: chatWidgetTypingPulse !important;
             }
 
-            @keyframes typingPulse {
-                0%, 60%, 100% { 
-                    transform: scale(0.7);
+            /* ROBUST TYPING ANIMATION - Multiple approaches for maximum compatibility */
+            @keyframes chatWidgetTypingPulse {
+                0% { 
+                    transform: scale(0.4);
+                    opacity: 0.3;
+                }
+                50% { 
+                    transform: scale(1.2);
+                    opacity: 1;
+                }
+                100% { 
+                    transform: scale(0.4);
+                    opacity: 0.3;
+                }
+            }
+            
+            @-webkit-keyframes chatWidgetTypingPulse {
+                0% { 
+                    -webkit-transform: scale(0.4);
+                    opacity: 0.3;
+                }
+                50% { 
+                    -webkit-transform: scale(1.2);
+                    opacity: 1;
+                }
+                100% { 
+                    -webkit-transform: scale(0.4);
+                    opacity: 0.3;
+                }
+            }
+            
+            /* Fallback simple animation */
+            @keyframes typingDotBounce {
+                0%, 80%, 100% { 
+                    transform: translateY(0);
                     opacity: 0.4;
                 }
-                30% { 
-                    transform: scale(1.4);
+                40% { 
+                    transform: translateY(-10px);
                     opacity: 1;
                 }
             }
@@ -1997,6 +2145,7 @@ class EasyChatWidget {
             .chat-widget.dark .bot-message {
                 background: #2d2d2d;
                 color: #ffffff;
+                box-shadow: none !important;
             }
 
             .chat-widget.dark .chat-input input {
@@ -2052,16 +2201,49 @@ class EasyChatWidget {
                     right: 0 !important;
                     left: 0 !important;
                     top: 0 !important;
-                    width: 100% !important;
+                    width: 100vw !important;
                     height: 100vh !important;
+                    min-width: 100vw !important;
+                    max-width: 100vw !important;
+                    min-height: 100vh !important;
+                    max-height: 100vh !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    border: none !important;
                     border-radius: 0 !important;
-                    max-height: calc(100vh - env(safe-area-inset-bottom)) !important;
+                    box-sizing: border-box !important;
                     transform: translateY(100%) !important;
                     transition: transform 0.3s ease-in-out !important;
-                    z-index: 2147483649 !important;
+                    z-index: 2147483647 !important;
+                    background: white !important;
+                    overflow: hidden !important;
                 }
 
                 .chat-window.active {
+                    transform: translateY(0) !important;
+                }
+                
+                /* Extra aggressive fullscreen for npm/CDN */
+                .chat-widget .chat-window.active {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    min-width: 100vw !important;
+                    max-width: 100vw !important;
+                    min-height: 100vh !important;
+                    max-height: 100vh !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    border: none !important;
+                    border-radius: 0 !important;
+                    box-sizing: border-box !important;
+                    z-index: 2147483647 !important;
+                    background: white !important;
+                    overflow: hidden !important;
                     transform: translateY(0) !important;
                 }
             
@@ -2951,11 +3133,22 @@ class EasyChatWidget {
                     left: 0 !important;
                     right: 0 !important;
                     bottom: 0 !important;
-                    width: 100% !important;
-                    height: 100% !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    min-width: 100vw !important;
+                    max-width: 100vw !important;
+                    min-height: 100vh !important;
+                    max-height: 100vh !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    border: none !important;
                     border-radius: 0 !important;
+                    box-sizing: border-box !important;
                     transform: translateY(100%) !important;
                     transition: transform 0.3s ease-in-out !important;
+                    z-index: 2147483647 !important;
+                    background: white !important;
+                    overflow: hidden !important;
                 }
 
                 .chat-widget .chat-window.active {
@@ -3254,6 +3447,16 @@ class EasyChatWidget {
             this.applyToggleButtonAnimation();
         }, 100);
         
+        // Ensure styles are properly applied for npm/CDN builds
+        setTimeout(() => {
+            this.forceStyleReapplication();
+        }, 500);
+        
+        // Continuously ensure typing indicator works (debug mode)
+        setInterval(() => {
+            this.ensureTypingIndicatorAnimation();
+        }, 2000);
+        
         // Setup text box close functionality
         setTimeout(() => {
             this.setupTextBoxEventListeners();
@@ -3277,6 +3480,9 @@ class EasyChatWidget {
         const fileInput = this.widget.querySelector('.file-input');
         const filePreview = this.widget.querySelector('.file-preview');
         const typingIndicator = this.widget.querySelector('.typing-indicator');
+        
+        // Setup mobile fullscreen enforcement
+        this.setupMobileFullscreenEnforcement();
         
         // File upload handling - only if enabled
         let selectedFiles = [];
@@ -3694,6 +3900,8 @@ class EasyChatWidget {
                         element.innerHTML = text;
                         this.isTypewriterActive = false;
                         this.enableSendingFunctionality();
+                        // Force enable input on typewriter error
+                        this.forceEnableInput();
                         if (callback) callback();
                     }
                 }, delay);
@@ -3736,6 +3944,161 @@ class EasyChatWidget {
         
         // Remove waiting indication
         chatInput.classList.remove('waiting');
+    }
+    
+    forceEnableInput() {
+        // Force enable input functionality regardless of state - used for error recovery
+        const chatInput = this.widget.querySelector('.chat-input input');
+        const sendButton = this.widget.querySelector('.send-button');
+        
+        if (chatInput) {
+            chatInput.readOnly = false;
+            chatInput.disabled = false;
+            chatInput.style.opacity = '1';
+            chatInput.style.pointerEvents = 'auto';
+            chatInput.classList.remove('waiting');
+        }
+        
+        if (sendButton) {
+            sendButton.disabled = false;
+            sendButton.style.opacity = '1';
+            sendButton.style.pointerEvents = 'auto';
+        }
+        
+        // Force enable chips
+        this.enableChips();
+        
+        // Reset state flags
+        this.isWaitingForResponse = false;
+        this.isTypewriterActive = false;
+        
+        // Remove any typing indicators
+        const typingIndicator = this.widget.querySelector('.typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.classList.remove('active');
+            this.stopJavaScriptTypingAnimation();
+        }
+    }
+    
+    ensureTypingIndicatorAnimation() {
+        // Continuously ensure typing indicator animation works with ROBUST debugging
+        const typingDots = this.widget.querySelectorAll('.typing-indicator span');
+        if (typingDots.length === 3) {
+            let needsRepair = false;
+            
+            typingDots.forEach((dot, index) => {
+                const computedStyle = window.getComputedStyle(dot);
+                const animationName = computedStyle.animationName;
+                
+                // Check if animation needs repair
+                if (animationName === 'none' || !animationName || animationName === 'initial') {
+                    needsRepair = true;
+                }
+            });
+            
+            if (needsRepair) {
+                this.repairTypingAnimation();
+            }
+        }
+    }
+    
+    repairTypingAnimation() {
+        const typingDots = this.widget.querySelectorAll('.typing-indicator span');
+        
+        // Clear any existing CSS animations
+        typingDots.forEach((dot, index) => {
+            dot.style.animation = 'none';
+            dot.style.webkitAnimation = 'none';
+            dot.offsetHeight; // Force repaint
+        });
+        
+        // Start JavaScript-based animation
+        this.startJavaScriptTypingAnimation();
+    }
+    
+    setupMobileFullscreenEnforcement() {
+        // Handle window resize for mobile fullscreen
+        const handleResize = () => {
+            const chatWindow = this.widget?.querySelector('.chat-window');
+            if (chatWindow && chatWindow.classList.contains('active') && window.innerWidth <= 480) {
+                chatWindow.style.setProperty('position', 'fixed', 'important');
+                chatWindow.style.setProperty('top', '0', 'important');
+                chatWindow.style.setProperty('left', '0', 'important');
+                chatWindow.style.setProperty('right', '0', 'important');
+                chatWindow.style.setProperty('bottom', '0', 'important');
+                chatWindow.style.setProperty('width', '100vw', 'important');
+                chatWindow.style.setProperty('height', '100vh', 'important');
+                chatWindow.style.setProperty('min-width', '100vw', 'important');
+                chatWindow.style.setProperty('max-width', '100vw', 'important');
+                chatWindow.style.setProperty('min-height', '100vh', 'important');
+                chatWindow.style.setProperty('max-height', '100vh', 'important');
+                chatWindow.style.setProperty('margin', '0', 'important');
+                chatWindow.style.setProperty('padding', '0', 'important');
+                chatWindow.style.setProperty('border', 'none', 'important');
+                chatWindow.style.setProperty('border-radius', '0', 'important');
+                chatWindow.style.setProperty('box-sizing', 'border-box', 'important');
+                chatWindow.style.setProperty('z-index', '2147483647', 'important');
+                chatWindow.style.setProperty('background', 'white', 'important');
+                chatWindow.style.setProperty('overflow', 'hidden', 'important');
+                chatWindow.style.setProperty('transform', 'translateY(0)', 'important');
+            }
+        };
+        
+        // Add resize listener
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+        
+        // Store cleanup function
+        this._mobileFullscreenCleanup = () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+        };
+    }
+
+    startJavaScriptTypingAnimation() {
+        // Clear any existing animation interval
+        if (this.typingAnimationInterval) {
+            clearInterval(this.typingAnimationInterval);
+        }
+        
+        const typingDots = this.widget.querySelectorAll('.typing-indicator span');
+        if (typingDots.length !== 3) return;
+        
+        let animationStep = 0;
+        const totalSteps = 60; // Total animation cycle steps
+        const dotDelays = [0, 20, 40]; // Delay each dot by 20 steps
+        
+        this.typingAnimationInterval = setInterval(() => {
+            typingDots.forEach((dot, index) => {
+                const dotStep = (animationStep + dotDelays[index]) % totalSteps;
+                const progress = dotStep / (totalSteps / 4); // 4 cycles per full animation
+                
+                // Create a smooth pulse using sine wave
+                const scale = 0.4 + 0.8 * Math.abs(Math.sin(progress * Math.PI));
+                const opacity = 0.3 + 0.7 * Math.abs(Math.sin(progress * Math.PI));
+                
+                // Apply transform and opacity
+                dot.style.setProperty('transform', `scale(${scale})`, 'important');
+                dot.style.setProperty('-webkit-transform', `scale(${scale})`, 'important');
+                dot.style.setProperty('opacity', opacity.toString(), 'important');
+            });
+            
+            animationStep = (animationStep + 1) % totalSteps;
+        }, 50); // 50ms = smooth 20fps animation
+    }
+    
+    stopJavaScriptTypingAnimation() {
+        if (this.typingAnimationInterval) {
+            clearInterval(this.typingAnimationInterval);
+            this.typingAnimationInterval = null;
+            
+            // Reset dots to normal state
+            const typingDots = this.widget.querySelectorAll('.typing-indicator span');
+            typingDots.forEach(dot => {
+                dot.style.setProperty('transform', 'scale(1)', 'important');
+                dot.style.setProperty('opacity', '1', 'important');
+            });
+        }
     }
 
     addMessage(text, sender, useTypewriter = true) {
@@ -3922,6 +4285,8 @@ class EasyChatWidget {
             this.isWaitingForResponse = true;
             this.disableSendingFunctionality();
             typingIndicator.classList.add('active');
+            // Start JavaScript animation when typing indicator becomes active
+            setTimeout(() => this.startJavaScriptTypingAnimation(), 100);
             // Typing indicator will be positioned correctly by addMessage
         };
     
@@ -3930,6 +4295,8 @@ class EasyChatWidget {
             this.isWaitingForResponse = false;
             this.enableSendingFunctionality();
             typingIndicator.classList.remove('active');
+            // Stop JavaScript animation when typing indicator is hidden
+            this.stopJavaScriptTypingAnimation();
         };
     
         try {
@@ -3998,6 +4365,8 @@ class EasyChatWidget {
             // Always enable sending and reset input
             enableSending();
             resetInputState();
+            // Force enable input functionality on error
+            this.forceEnableInput();
         }
     }
     
@@ -4047,10 +4416,10 @@ class EasyChatWidget {
         }
         
         // Restore document scroll behavior
-        document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.width = '';
-        document.documentElement.style.overflow = '';
+        document.body.style.setProperty('overflow', '', 'important');
+        document.body.style.setProperty('position', '', 'important');
+        document.body.style.setProperty('width', '', 'important');
+        document.documentElement.style.setProperty('overflow', '', 'important');
         
         // Clean up any remaining event listeners that might interfere
         const chatMessages = this.widget.querySelector('.chat-messages');
@@ -4104,6 +4473,34 @@ class EasyChatWidget {
         
         requestAnimationFrame(() => {
             chatWindow.classList.add('active');
+            
+            // Force mobile fullscreen behavior for npm/CDN builds
+            if (window.innerWidth <= 480) {
+                chatWindow.style.setProperty('position', 'fixed', 'important');
+                chatWindow.style.setProperty('top', '0', 'important');
+                chatWindow.style.setProperty('left', '0', 'important');
+                chatWindow.style.setProperty('right', '0', 'important');
+                chatWindow.style.setProperty('bottom', '0', 'important');
+                chatWindow.style.setProperty('width', '100vw', 'important');
+                chatWindow.style.setProperty('height', '100vh', 'important');
+                chatWindow.style.setProperty('min-width', '100vw', 'important');
+                chatWindow.style.setProperty('max-width', '100vw', 'important');
+                chatWindow.style.setProperty('min-height', '100vh', 'important');
+                chatWindow.style.setProperty('max-height', '100vh', 'important');
+                chatWindow.style.setProperty('margin', '0', 'important');
+                chatWindow.style.setProperty('padding', '0', 'important');
+                chatWindow.style.setProperty('border', 'none', 'important');
+                chatWindow.style.setProperty('border-radius', '0', 'important');
+                chatWindow.style.setProperty('box-sizing', 'border-box', 'important');
+                chatWindow.style.setProperty('z-index', '2147483647', 'important');
+                chatWindow.style.setProperty('background', 'white', 'important');
+                chatWindow.style.setProperty('overflow', 'hidden', 'important');
+                chatWindow.style.setProperty('transform', 'translateY(0)', 'important');
+                
+                // Ensure body doesn't interfere with fullscreen
+                document.body.style.setProperty('overflow', 'hidden', 'important');
+                document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+            }
             
             // Setup mobile input if needed - only once
             if (this.isMobileBrowser() && this.config.enableEnhancedMobileInput && chatInput && !this._mobileInputSetup) {
@@ -4475,6 +4872,8 @@ class EasyChatWidget {
             this.isWaitingForResponse = true;
             this.disableSendingFunctionality();
             typingIndicator.classList.add('active');
+            // Start JavaScript animation
+            setTimeout(() => this.startJavaScriptTypingAnimation(), 100);
 
             // No automatic scroll - let natural positioning handle it
 
@@ -4543,6 +4942,10 @@ class EasyChatWidget {
             this.isWaitingForResponse = false;
             this.enableSendingFunctionality();
             typingIndicator.classList.remove('active');
+            // Stop JavaScript animation
+            this.stopJavaScriptTypingAnimation();
+            // Force enable input functionality on error
+            this.forceEnableInput();
             
             // Ensure input is cleared and reset
             chatInput.value = '';
@@ -4659,6 +5062,8 @@ class EasyChatWidget {
 
     processApiResponse(data, typingIndicator) {
         typingIndicator.classList.remove('active');
+        // Stop JavaScript animation
+        this.stopJavaScriptTypingAnimation();
         
         // Enhanced response processing
         let responseText;
@@ -4710,6 +5115,8 @@ class EasyChatWidget {
     handleApiError(error, typingIndicator) {
         console.error('API Error:', error);
         typingIndicator.classList.remove('active');
+        // Stop JavaScript animation
+        this.stopJavaScriptTypingAnimation();
         
         let errorMessage = 'Sorry, there was an error processing your request.';
         
@@ -4724,6 +5131,11 @@ class EasyChatWidget {
         this.addMessage(errorMessage, 'bot', true);
         this.storageManager.saveMessage(errorMessage, 'bot');
         
+        // Force enable input functionality on error
+        this.isWaitingForResponse = false;
+        this.enableSendingFunctionality();
+        this.forceEnableInput();
+        
         if (this.config.onError) {
             this.config.onError(error);
         }
@@ -4734,6 +5146,8 @@ class EasyChatWidget {
         this.storageManager.saveMessage(chatInput.value.trim(), 'user');
         chatInput.value = '';
         typingIndicator.classList.add('active');
+        // Start JavaScript animation
+        setTimeout(() => this.startJavaScriptTypingAnimation(), 100);
         this.isWaitingForResponse = true;
         this.disableSendingFunctionality();
     }
@@ -4744,6 +5158,8 @@ class EasyChatWidget {
             this.enableSendingFunctionality();
         }
         typingIndicator.classList.remove('active');
+        // Stop JavaScript animation
+        this.stopJavaScriptTypingAnimation();
     }
 
     loadChatHistory() {
@@ -4801,6 +5217,12 @@ class EasyChatWidget {
         if (this._mobileInputCleanup) {
             this._mobileInputCleanup();
             this._mobileInputCleanup = null;
+        }
+        
+        // Clean up mobile fullscreen handlers
+        if (this._mobileFullscreenCleanup) {
+            this._mobileFullscreenCleanup();
+            this._mobileFullscreenCleanup = null;
         }
         
         // Reset mobile setup flag
@@ -4924,44 +5346,8 @@ class EasyChatWidget {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message bot-message';
             
-            // Step 2: Generate AI avatar with robust logic
-            const avatar = this.config.aiAvatar || '🤖';
-            const botName = this.config.botName || 'Chat Assistant';
-            
-            let avatarHtml = '';
-            if (avatar.length <= 4 && /\p{Emoji}/u.test(avatar)) {
-                avatarHtml = `
-                    <div class="ai-avatar">
-                        <div class="ai-avatar-icon">${avatar}</div>
-                        <div class="ai-name">${botName}</div>
-                    </div>
-                `;
-            } else if (avatar.startsWith('http') || avatar.startsWith('data:image') || avatar.startsWith('/')) {
-                avatarHtml = `
-                    <div class="ai-avatar">
-                        <div class="ai-avatar-icon">
-                            <img src="${avatar}" alt="${botName}" />
-                        </div>
-                        <div class="ai-name">${botName}</div>
-                    </div>
-                `;
-            } else if (avatar.trim().startsWith('<svg')) {
-                avatarHtml = `
-                    <div class="ai-avatar">
-                        <div class="ai-avatar-icon">
-                            ${avatar}
-                        </div>
-                        <div class="ai-name">${botName}</div>
-                    </div>
-                `;
-            } else {
-                avatarHtml = `
-                    <div class="ai-avatar">
-                        <div class="ai-avatar-icon">🤖</div>
-                        <div class="ai-name">${botName}</div>
-                    </div>
-                `;
-            }
+            // Step 2: Generate AI avatar using the proper method with correct CSS classes
+            const avatarHtml = this.generateGreetingAvatar();
             
             messageDiv.innerHTML = avatarHtml;
             
@@ -4971,35 +5357,12 @@ class EasyChatWidget {
             contentContainer.textContent = this.config.greeting;
             messageDiv.appendChild(contentContainer);
             
-            // Step 4: Create actions container only if message actions are enabled
+            // Step 4: Do not create actions container for greeting message - greeting should not have action buttons
             let actionsDiv = null;
-            if (this.config.showMessageActions) {
-                actionsDiv = document.createElement('div');
-                actionsDiv.className = 'message-actions greeting-actions';
-                actionsDiv.style.display = 'flex'; // Show initially for greeting message
-                actionsDiv.innerHTML = `
-                    <button class="message-action-btn copy-btn" title="Copy to clipboard">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">
-                    </button>
-                    <button class="message-action-btn like-btn" title="Helpful">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z'/%3E%3C/svg%3E" alt="Like">
-                    </button>
-                    <button class="message-action-btn dislike-btn" title="Not helpful">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z'/%3E%3C/svg%3E" alt="Dislike">
-                    </button>
-                    <button class="message-action-btn regenerate-btn" title="Regenerate response">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z'/%3E%3C/svg%3E" alt="Regenerate">
-                    </button>
-                `;
-            }
             
             // Step 5: Assemble the complete structure
             botMessageContainer.appendChild(messageDiv);
-            if (actionsDiv) {
-                botMessageContainer.appendChild(actionsDiv);
-                // Setup greeting action buttons
-                this.setupMessageActions(botMessageContainer, this.config.greeting);
-            }
+            // No action buttons for greeting message
             messageRow.appendChild(botMessageContainer);
             
             // Step 6: Insert at the beginning of chat messages
@@ -5147,6 +5510,92 @@ class EasyChatWidget {
             chatToggle.classList.add(`animation-${this.config.toggleButtonAnimation}`);
             
 
+        }
+    }
+    
+    forceStyleReapplication() {
+        // Force reapplication of critical styles for npm/CDN builds
+        const avatarIcons = this.widget.querySelectorAll('.ai-avatar-icon:not(.emoji-avatar):not(.image-avatar)');
+        avatarIcons.forEach(icon => {
+            if (!icon.style.backgroundColor) {
+                icon.style.setProperty('background-color', this.config.primaryColor || '#0084ff', 'important');
+            }
+        });
+        
+        // Specifically fix greeting message avatars
+        const greetingAvatars = this.widget.querySelectorAll('#greeting-row .ai-avatar-icon:not(.emoji-avatar):not(.image-avatar)');
+        greetingAvatars.forEach(icon => {
+            icon.style.setProperty('background-color', this.config.primaryColor || '#0084ff', 'important');
+        });
+        
+        // Force reapplication of typing indicator with BULLETPROOF JavaScript animation
+        const typingDots = this.widget.querySelectorAll('.typing-indicator span');
+        
+        typingDots.forEach((dot, index) => {
+            // Ensure dot appearance first
+            dot.style.setProperty('background', '#666', 'important');
+            dot.style.setProperty('background-color', '#666', 'important');
+            dot.style.setProperty('display', 'inline-block', 'important');
+            dot.style.setProperty('visibility', 'visible', 'important');
+            dot.style.setProperty('width', '10px', 'important');
+            dot.style.setProperty('height', '10px', 'important');
+            dot.style.setProperty('border-radius', '50%', 'important');
+            dot.style.setProperty('margin', '0 3px', 'important');
+            dot.style.setProperty('box-shadow', 'none', 'important');
+            
+            // Clear any CSS animations
+            dot.style.animation = 'none';
+            dot.style.webkitAnimation = 'none';
+        });
+        
+        // Start bulletproof JavaScript animation
+        setTimeout(() => {
+            this.startJavaScriptTypingAnimation();
+        }, 100);
+        
+        // Force typing indicator container size and remove shadow
+        const typingIndicator = this.widget.querySelector('.typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.style.setProperty('padding', '16px 20px', 'important');
+            typingIndicator.style.setProperty('height', '50px', 'important');
+            typingIndicator.style.setProperty('min-width', '85px', 'important');
+            typingIndicator.style.setProperty('max-width', '100px', 'important');
+            typingIndicator.style.setProperty('border-radius', '24px', 'important');
+            typingIndicator.style.setProperty('background', '#f0f2f5', 'important');
+            typingIndicator.style.setProperty('box-shadow', 'none', 'important');
+        }
+        
+        // Force removal of bot message shadows
+        const botMessages = this.widget.querySelectorAll('.bot-message, .ai-message');
+        botMessages.forEach(message => {
+            message.style.setProperty('box-shadow', 'none', 'important');
+        });
+        
+        // Force mobile fullscreen behavior for npm/CDN builds
+        if (window.innerWidth <= 480) {
+            const chatWindow = this.widget.querySelector('.chat-window');
+            if (chatWindow && chatWindow.classList.contains('active')) {
+                chatWindow.style.setProperty('position', 'fixed', 'important');
+                chatWindow.style.setProperty('top', '0', 'important');
+                chatWindow.style.setProperty('left', '0', 'important');
+                chatWindow.style.setProperty('right', '0', 'important');
+                chatWindow.style.setProperty('bottom', '0', 'important');
+                chatWindow.style.setProperty('width', '100vw', 'important');
+                chatWindow.style.setProperty('height', '100vh', 'important');
+                chatWindow.style.setProperty('min-width', '100vw', 'important');
+                chatWindow.style.setProperty('max-width', '100vw', 'important');
+                chatWindow.style.setProperty('min-height', '100vh', 'important');
+                chatWindow.style.setProperty('max-height', '100vh', 'important');
+                chatWindow.style.setProperty('margin', '0', 'important');
+                chatWindow.style.setProperty('padding', '0', 'important');
+                chatWindow.style.setProperty('border', 'none', 'important');
+                chatWindow.style.setProperty('border-radius', '0', 'important');
+                chatWindow.style.setProperty('box-sizing', 'border-box', 'important');
+                chatWindow.style.setProperty('z-index', '2147483647', 'important');
+                chatWindow.style.setProperty('background', 'white', 'important');
+                chatWindow.style.setProperty('overflow', 'hidden', 'important');
+                chatWindow.style.setProperty('transform', 'translateY(0)', 'important');
+            }
         }
     }
 
@@ -6810,18 +7259,27 @@ const additionalStyles = `
     /* Mobile-specific styles */
     @media screen and (max-width: 480px) {
         .chat-window.active {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: 100% !important;
-            height: 100% !important;
-            margin: 0;
-            padding-bottom: var(--sab, 0px);
-            border-radius: 0;
-            display: flex;
-            flex-direction: column;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            min-width: 100vw !important;
+            max-width: 100vw !important;
+            min-height: 100vh !important;
+            max-height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+            z-index: 2147483647 !important;
+            background: white !important;
+            overflow: hidden !important;
         }
 
         .chat-input-container {
