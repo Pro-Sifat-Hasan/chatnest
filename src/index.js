@@ -1122,13 +1122,15 @@ class EasyChatWidget {
                 color: white;
             }
 
-            .chat-widget.dark-theme .chat-input input {
+            .chat-widget.dark-theme .chat-input input,
+            .chat-widget.dark-theme .chat-input .chat-textarea {
                 background: var(--chat-input-bg);
                 color: var(--chat-text-color);
                 border-color: var(--chat-border-color);
             }
 
-            .chat-widget.dark-theme .chat-input input::placeholder {
+            .chat-widget.dark-theme .chat-input input::placeholder,
+            .chat-widget.dark-theme .chat-input .chat-textarea::placeholder {
                 color: #888888;
             }
 
@@ -1522,9 +1524,9 @@ class EasyChatWidget {
                 cursor: text !important;             /* Ensure text cursor appears */
             }
 
+            /* Avoid global bright blue outline rules (we use ash focus styling above) */
             .chat-input input:focus {
-                outline: 2px solid #007bff !important; /* Add a clear focus outline */
-                border-color: #007bff !important;     /* Change border color on focus */
+                outline: none !important;
             }
 
             /* Ensure active inputs remain functional */
@@ -1540,7 +1542,8 @@ class EasyChatWidget {
             }
 
             /* Prevent issues with z-index or visibility */
-            .chat-input input {
+            .chat-input input,
+            .chat-input .chat-textarea {
                 z-index: 1 !important;
                 visibility: visible !important;
                 pointer-events: auto !important;
@@ -1570,35 +1573,50 @@ class EasyChatWidget {
                 position: relative;
             }
 
-            .chat-input input {
+            .chat-input input,
+            .chat-input .chat-textarea {
                 flex: 1;
                 padding: 12px 16px;
                 border: 1.5px solid #e4e6eb;
-                border-radius: 24px;
+                border-radius: 14px;
                 outline: none;
                 font-size: 14px;
                 background-color: white;
-                cursor: pointer;
+                cursor: text;
                 transition: all 0.25s ease;
                 min-height: 48px;
                 height: 48px;
                 line-height: 1.4;
                 box-sizing: border-box;
             }
+
+            /* Multiline textarea specifics */
+            .chat-input .chat-textarea {
+                resize: none;
+                overflow: hidden;
+                height: auto;
+                max-height: 140px;
+                padding: 12px 48px 12px 16px; /* space for send button */
+            }
             
-            .chat-input input:focus {
-                border-color: var(--chat-primary-color);
+            .chat-input input:focus,
+            .chat-input .chat-textarea:focus {
+                /* Desktop focus: use a soft ash outline instead of black */
+                border-color: #cbd5e1;
                 border-width: 2px;
-                box-shadow: 0 0 0 3px rgba(var(--chat-primary-rgb), 0.1);
-                padding: 11px 15px; /* Adjust for thicker border */
+                box-shadow: 0 0 0 3px rgba(203, 213, 225, 0.45);
+                outline: none;
+                padding: 11px 47px 11px 15px; /* Adjust for thicker border + send icon space */
             }
 
-            .chat-input input.cursor-active {
+            .chat-input input.cursor-active,
+            .chat-input .chat-textarea.cursor-active {
                 cursor: text !important;
                 caret-color: auto !important;
             }
 
-            .chat-input input:focus {
+            .chat-input input:focus,
+            .chat-input .chat-textarea:focus {
                 cursor: text !important;
                 caret-color: auto !important;
                 outline: none;
@@ -1614,7 +1632,8 @@ class EasyChatWidget {
                     border-top: 1px solid #e4e6eb !important;
                     z-index: 1000 !important;
                     display: flex !important;
-                    align-items: center !important;
+                    align-items: flex-end !important;
+                    gap: 10px !important;
                     /* Minimal design */
                     min-height: auto !important;
                     touch-action: manipulation !important;
@@ -1622,7 +1641,8 @@ class EasyChatWidget {
                     margin: 0 !important;
                 }
                 
-                .chat-input input {
+                .chat-input input,
+                .chat-input .chat-textarea {
                     font-size: 16px !important; /* Prevent iOS zoom */
                     -webkit-user-select: text !important;
                     user-select: text !important;
@@ -1630,14 +1650,14 @@ class EasyChatWidget {
                     cursor: text !important;
                     /* Perfect size */
                     min-height: 48px !important;
-                    height: 48px !important;
-                    line-height: 48px !important;
+                    height: auto !important;
+                    line-height: 20px !important;
                     touch-action: manipulation !important;
                     -webkit-appearance: none !important;
                     appearance: none !important;
-                    border-radius: 24px !important;
-                    /* Send button inside - optimized padding for smaller button */
-                    padding: 0 48px 0 18px !important;
+                    border-radius: 14px !important;
+                    /* Send button is outside on mobile now */
+                    padding: 12px 14px !important;
                     border: 1.5px solid #e4e6eb !important;
                     background: #ffffff !important;
                     transition: all 0.25s ease !important;
@@ -1679,23 +1699,27 @@ class EasyChatWidget {
                     border-color: var(--chat-primary-color) !important;
                 }
                 
-                                /* Clean mobile send button - just SVG */
+                                /* Mobile send button (rectangular, inside input) */
             .send-button {
-                    position: absolute !important;
-                    right: 8px !important;
-                    top: 50% !important;
-                    transform: translateY(-50%) !important;
-                    min-width: 32px !important;
-                    min-height: 32px !important;
-                    width: 32px !important;
-                    height: 32px !important;
+                    position: relative !important;
+                    right: auto !important;
+                    bottom: auto !important;
+                    top: auto !important;
+                    left: auto !important;
+                    transform: none !important;
+                    min-width: 48px !important;
+                    min-height: 48px !important;
+                    width: 48px !important;
+                    height: 48px !important;
                     touch-action: manipulation !important;
-                    border-radius: 0 !important;
+                    /* Rectangular (mobile) */
+                    border-radius: 12px !important;
                     margin: 0 !important;
                     flex-shrink: 0 !important;
-                    -webkit-tap-highlight-color: transparent !important;
+                    -webkit-tap-highlight-color: rgba(0,0,0,0.05) !important;
                     z-index: 200 !important;
-                    background: transparent !important;
+                    /* Use primary color on mobile like your screenshot */
+                    background: var(--chat-primary-color-gradient) !important;
                     border: none !important;
                     cursor: pointer !important;
                     box-shadow: none !important;
@@ -1704,57 +1728,56 @@ class EasyChatWidget {
                     align-items: center !important;
                     justify-content: center !important;
                     padding: 0 !important;
+                    pointer-events: auto !important;
+                    -webkit-user-select: none !important;
+                    user-select: none !important;
+                    opacity: 1 !important;
             }
 
             .send-button:hover {
-                    transform: translateY(-50%) scale(1.1) !important;
-                    background: transparent !important;
+                    transform: scale(1.06) !important;
+                    background: rgba(0,0,0,0.06) !important;
                 }
                 
                 .send-button:active {
-                    transform: translateY(-50%) scale(0.9) !important;
-                    background: transparent !important;
+                    transform: scale(0.94) !important;
+                    background: rgba(0,0,0,0.08) !important;
+            }
+            
+            .send-button:disabled {
+                    opacity: 1 !important;
+                    pointer-events: auto !important;
+                    cursor: pointer !important;
             }
 
             .send-button img {
-                    width: 24px !important;
-                    height: 24px !important;
+                    width: 22px !important;
+                    height: 22px !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     object-fit: contain !important;
-                    /* Ensure SVG shows with primary color */
-                    filter: none !important;
+                    /* Ensure icon is visible on primary background */
+                    filter: brightness(0) invert(1) !important;
+                    pointer-events: none !important;
                 }
                 
-                /* Compact mobile typing indicator */
+                /* Mobile typing indicator: Thinking + animated ellipsis (no 3-dot bubbles) */
                 .chat-widget .typing-indicator {
                     margin: 10px 0 !important;
                     margin-left: 0 !important;
                     margin-right: auto !important;
                     padding: 12px 16px !important;
-                    max-width: 80px !important;
-                    min-width: 75px !important;
-                    height: 40px !important;
-                    border-radius: 20px !important;
+                    max-width: 220px !important;
+                    min-width: 110px !important;
+                    border-radius: 14px !important;
                     border-top-left-radius: 6px !important;
+                    height: auto !important;
                 }
                 
                 .chat-widget .typing-indicator.active {
-                    display: flex !important;
+                    display: inline-flex !important;
                     align-items: center !important;
-                    justify-content: center !important;
-                }
-                
-                .chat-widget .typing-indicator span {
-                    width: 8px !important;
-                    height: 8px !important;
-                    margin: 0 2px !important;
-                    box-shadow: none !important;
-                    animation: chatWidgetTypingPulse 1.2s infinite ease-in-out !important;
-                    -webkit-animation: chatWidgetTypingPulse 1.2s infinite ease-in-out !important;
-                    animation-name: chatWidgetTypingPulse !important;
-                    -webkit-animation-name: chatWidgetTypingPulse !important;
-                    background: #666 !important;
+                    justify-content: flex-start !important;
                 }
                 
                 /* Mobile chat window adjustments */
@@ -1771,6 +1794,9 @@ class EasyChatWidget {
 
 
 
+            /* Default send button styling (desktop/tablet). Mobile is overridden above in the (max-width: 768px) block. */
+            /* Desktop/tablet send button (circular) only when the device supports hover + fine pointer. */
+            @media (hover: hover) and (pointer: fine) {
             .send-button {
                 background: var(--chat-primary-color-gradient) !important;
                 color: white !important;
@@ -1811,15 +1837,26 @@ class EasyChatWidget {
                 display: block !important;
                 flex-shrink: 0 !important;
                 filter: brightness(0) invert(1) !important;
+                pointer-events: none !important;
+            }
             }
 
-            /* ENHANCED TYPING INDICATOR - Bigger and More Robust */
+            /* HARD OVERRIDE: touch devices must keep the mobile rectangular send button */
+            @media (pointer: coarse) {
+                .chat-input .send-button {
+                    border-radius: 12px !important;
+                    background: var(--chat-primary-color-gradient) !important;
+                    opacity: 1 !important;
+                }
+            }
+
+            /* Typing indicator: "Thinking…" text with animated ellipsis (no 3-dot bubbles) */
             .chat-widget .typing-indicator {
                 display: none !important;
-                padding: 16px 20px !important;
+                padding: 12px 16px !important;
                 background: #f0f2f5 !important;
-                border-radius: 24px !important;
-                border-top-left-radius: 8px !important;
+                border-radius: 14px !important;
+                border-top-left-radius: 6px !important;
                 align-self: flex-start !important;
                 margin: 12px 0 !important;
                 margin-left: 0 !important;
@@ -1827,119 +1864,47 @@ class EasyChatWidget {
                 box-shadow: none !important;
                 border: 1px solid #e4e6eb !important;
                 position: relative !important;
-                overflow: visible !important;
-                max-width: 100px !important;
-                min-width: 85px !important;
                 width: fit-content !important;
-                height: 50px !important;
-                /* Flexbox for perfect centering */
-                align-items: center !important;
-                justify-content: center !important;
+                max-width: 220px !important;
                 animation: fadeInUp 0.4s ease-out !important;
                 -webkit-animation: fadeInUp 0.4s ease-out !important;
-                z-index: 10 !important;
             }
             
             .typing-indicator.active {
-                display: flex !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: flex-start !important;
             }
 
-            .typing-indicator::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: -100%;
-                width: 100%;
-                height: 100%;
-                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-                animation: shimmer 2.5s infinite;
-                border-radius: 20px;
+            .typing-text {
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                font-size: 13px !important;
+                color: #6b7280 !important;
+                font-weight: 600 !important;
+                line-height: 1 !important;
+                white-space: nowrap !important;
             }
 
-            .chat-widget .typing-indicator span {
-                width: 10px !important;
-                height: 10px !important;
-                background: #666 !important;
+            .typing-spinner {
                 display: inline-block !important;
-                border-radius: 50% !important;
-                margin: 0 3px !important;
-                position: relative !important;
-                box-shadow: none !important;
-                z-index: 11 !important;
-                opacity: 1 !important;
-                visibility: visible !important;
-                transform: scale(1) !important;
-                -webkit-transform: scale(1) !important;
-                /* Multiple animation fallbacks */
-                animation: chatWidgetTypingPulse 1.2s infinite ease-in-out !important;
-                -webkit-animation: chatWidgetTypingPulse 1.2s infinite ease-in-out !important;
-                animation-fill-mode: both !important;
-                -webkit-animation-fill-mode: both !important;
+                width: 16px;
+                height: 16px;
+                box-sizing: border-box;
+                border-radius: 999px;
+                border: 2px solid rgba(107, 114, 128, 0.25);
+                border-top-color: var(--chat-primary-color);
+                animation: typingSpin 0.8s linear infinite;
+            }
+            @keyframes typingSpin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
             }
 
-            .chat-widget .typing-indicator span:nth-child(1) { 
-                animation-delay: 0s !important; 
-                -webkit-animation-delay: 0s !important;
-                background: #666 !important;
-                animation-name: chatWidgetTypingPulse !important;
-                -webkit-animation-name: chatWidgetTypingPulse !important;
-            }
-            .chat-widget .typing-indicator span:nth-child(2) { 
-                animation-delay: 0.3s !important; 
-                -webkit-animation-delay: 0.3s !important;
-                background: #666 !important;
-                animation-name: chatWidgetTypingPulse !important;
-                -webkit-animation-name: chatWidgetTypingPulse !important;
-            }
-            .chat-widget .typing-indicator span:nth-child(3) { 
-                animation-delay: 0.6s !important;
-                -webkit-animation-delay: 0.6s !important;
-                background: #666 !important;
-                animation-name: chatWidgetTypingPulse !important;
-                -webkit-animation-name: chatWidgetTypingPulse !important;
-            }
-
-            /* ROBUST TYPING ANIMATION - Multiple approaches for maximum compatibility */
-            @keyframes chatWidgetTypingPulse {
-                0% { 
-                    transform: scale(0.4);
-                    opacity: 0.3;
-                }
-                50% { 
-                    transform: scale(1.2);
-                    opacity: 1;
-                }
-                100% { 
-                    transform: scale(0.4);
-                    opacity: 0.3;
-                }
-            }
-            
-            @-webkit-keyframes chatWidgetTypingPulse {
-                0% { 
-                    -webkit-transform: scale(0.4);
-                    opacity: 0.3;
-                }
-                50% { 
-                    -webkit-transform: scale(1.2);
-                    opacity: 1;
-                }
-                100% { 
-                    -webkit-transform: scale(0.4);
-                    opacity: 0.3;
-                }
-            }
-            
-            /* Fallback simple animation */
-            @keyframes typingDotBounce {
-                0%, 80%, 100% { 
-                    transform: translateY(0);
-                    opacity: 0.4;
-                }
-                40% { 
-                    transform: translateY(-10px);
-                    opacity: 1;
-                }
+            /* Safety: if an old cached build still renders dot <span>s, hide them */
+            .typing-indicator span {
+                display: none !important;
             }
 
             @keyframes fadeInUp {
@@ -1958,26 +1923,13 @@ class EasyChatWidget {
                 100% { left: 100%; }
             }
 
-            /* Enhanced typing indicator for dark theme */
+            /* Dark theme typing indicator */
             .chat-widget.dark .typing-indicator {
-                background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                background: #1f2937 !important;
+                border: 1px solid rgba(255, 255, 255, 0.12) !important;
             }
-
-            .chat-widget.dark .typing-indicator span {
-                background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-            }
-
-            .chat-widget.dark .typing-indicator span:nth-child(1) { 
-                background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-            }
-            .chat-widget.dark .typing-indicator span:nth-child(2) { 
-                background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-            }
-            .chat-widget.dark .typing-indicator span:nth-child(3) { 
-                background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+            .chat-widget.dark .typing-text {
+                color: #cbd5e1 !important;
             }
 
             /* Typing Text Styles (only when showTypingText is true) */
@@ -2171,8 +2123,7 @@ class EasyChatWidget {
                 }
 
                 .chat-input input:focus {
-                    outline: 2px solid #007bff !important; /* Add a clear focus outline */
-                    border-color: #007bff !important;     /* Change border color on focus */
+                    outline: none !important;
                 }
 
                 /* Ensure active inputs remain functional */
@@ -2202,11 +2153,11 @@ class EasyChatWidget {
                     left: 0 !important;
                     top: 0 !important;
                     width: 100vw !important;
-                    height: 100vh !important;
+                    height: var(--chat-mobile-vh, 100dvh) !important;
                     min-width: 100vw !important;
                     max-width: 100vw !important;
-                    min-height: 100vh !important;
-                    max-height: 100vh !important;
+                    min-height: var(--chat-mobile-vh, 100dvh) !important;
+                    max-height: var(--chat-mobile-vh, 100dvh) !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     border: none !important;
@@ -2214,9 +2165,11 @@ class EasyChatWidget {
                     box-sizing: border-box !important;
                     transform: translateY(100%) !important;
                     transition: transform 0.3s ease-in-out !important;
-                    z-index: 2147483647 !important;
+                    z-index: 999999 !important;
                     background: white !important;
                     overflow: hidden !important;
+                    display: flex !important;
+                    flex-direction: column !important;
                 }
 
                 .chat-window.active {
@@ -2231,20 +2184,22 @@ class EasyChatWidget {
                     right: 0 !important;
                     bottom: 0 !important;
                     width: 100vw !important;
-                    height: 100vh !important;
+                    height: var(--chat-mobile-vh, 100dvh) !important;
                     min-width: 100vw !important;
                     max-width: 100vw !important;
-                    min-height: 100vh !important;
-                    max-height: 100vh !important;
+                    min-height: var(--chat-mobile-vh, 100dvh) !important;
+                    max-height: var(--chat-mobile-vh, 100dvh) !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     border: none !important;
                     border-radius: 0 !important;
                     box-sizing: border-box !important;
-                    z-index: 2147483647 !important;
+                    z-index: 999999 !important;
                     background: white !important;
                     overflow: hidden !important;
                     transform: translateY(0) !important;
+                    display: flex !important;
+                    flex-direction: column !important;
                 }
             
                 .chat-toggle {
@@ -2252,7 +2207,7 @@ class EasyChatWidget {
                     bottom: 20px !important;
                     right: 20px !important;
                     z-index: 2147483650 !important;
-                    transform: none !important;
+                    transform: none;
                     display: flex !important;
                     align-items: center !important;
                     justify-content: center !important;
@@ -2293,6 +2248,10 @@ class EasyChatWidget {
                 padding: 0.8rem;
                 padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
                 border-top: none;
+                position: sticky !important;
+                bottom: 0 !important;
+                z-index: 9999 !important;
+                background: var(--chat-input-bg) !important;
                 }
             
                 .message {
@@ -2325,8 +2284,7 @@ class EasyChatWidget {
                 }
 
                 .chat-input input:focus {
-                    outline: 2px solid #007bff !important; /* Add a clear focus outline */
-                    border-color: #007bff !important;     /* Change border color on focus */
+                    outline: none !important;
                 }
 
                 /* Ensure active inputs remain functional */
@@ -3134,11 +3092,11 @@ class EasyChatWidget {
                     right: 0 !important;
                     bottom: 0 !important;
                     width: 100vw !important;
-                    height: 100vh !important;
+                    height: var(--chat-mobile-vh, 100dvh) !important;
                     min-width: 100vw !important;
                     max-width: 100vw !important;
-                    min-height: 100vh !important;
-                    max-height: 100vh !important;
+                    min-height: var(--chat-mobile-vh, 100dvh) !important;
+                    max-height: var(--chat-mobile-vh, 100dvh) !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     border: none !important;
@@ -3160,7 +3118,7 @@ class EasyChatWidget {
                     bottom: 20px !important;
                     right: 20px !important;
                     z-index: 2147483650 !important;
-                    transform: none !important;
+                    transform: none;
                     display: flex !important;
                     align-items: center !important;
                     justify-content: center !important;
@@ -3385,8 +3343,7 @@ class EasyChatWidget {
                         </div>
                     </div>
                     <div class="typing-indicator">
-                        <span></span><span></span><span></span>
-                        ${this.config.showTypingText ? '<div class="typing-text">AI is thinking...</div>' : ''}
+                        <div class="typing-text">Thinking<div class="typing-spinner" aria-hidden="true"></div></div>
                     </div>
                     <div class="chat-spacer"></div>
                 </div>
@@ -3401,7 +3358,7 @@ class EasyChatWidget {
 
                 <div class="chat-input-container">
                     <div class="chat-input">
-                        <input type="text" placeholder="${this.config.placeholder}" aria-label="Chat input">
+                        <textarea class="chat-textarea" rows="1" placeholder="${this.config.placeholder}" aria-label="Chat input"></textarea>
                         ${this.config.enableFileUpload ? `
                         <input type="file" class="file-input" multiple accept="image/*,.pdf,.doc,.docx,.txt" style="display: none;">
                         <button class="file-button" title="Attach files">
@@ -3474,7 +3431,7 @@ class EasyChatWidget {
         const closeChat = this.widget.querySelector('.close-chat');    
         const eraseChat = this.widget.querySelector('.erase-chat');
         const chatMessages = this.widget.querySelector('.chat-messages');
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const sendButton = this.widget.querySelector('.send-button');
         const fileButton = this.widget.querySelector('.file-button');
         const fileInput = this.widget.querySelector('.file-input');
@@ -3519,52 +3476,141 @@ class EasyChatWidget {
             this.closeChat();
         });
 
+        // Initialize send button state
+        sendButton.disabled = false;
+        sendButton.style.opacity = '1';
+        sendButton.style.pointerEvents = 'auto';
+
         // Send message handlers with enhanced checks
-        const sendMessageHandler = () => {
-            const message = chatInput.value.trim();
-            if ((message || selectedFiles.length > 0) && !this.isWaitingForResponse && !this.isTypewriterActive) {
-                // Clear input immediately after sending
-                chatInput.value = '';
-                
-                if (this.config.enableFileUpload && selectedFiles.length > 0) {
-                    this.sendMessageWithFiles(message, selectedFiles);
-                    selectedFiles = [];
-                    if (filePreview) {
+        const sendMessageHandler = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            // Preserve multiline whitespace; only trim for "is empty" detection
+            const rawMessage = (chatInput.value || '').replace(/\r\n/g, '\n');
+            const hasText = rawMessage.trim().length > 0;
+            
+            // Always allow button click, just check if message is valid
+            if (!hasText && (!this.config.enableFileUpload || selectedFiles.length === 0)) {
+                // Shake animation or feedback for empty message
+                chatInput.focus();
+                return;
+            }
+            
+            if (this.isWaitingForResponse || this.isTypewriterActive) {
+                return; // Silently ignore if waiting
+            }
+            
+            // Clear input immediately after sending
+            chatInput.value = '';
+            // Reset textarea height so the send button doesn't "drift" after the first send
+            try {
+                chatInput.style.height = 'auto';
+            } catch (_) {}
+            
+            if (this.config.enableFileUpload && selectedFiles.length > 0) {
+                this.sendMessageWithFiles(rawMessage, selectedFiles);
+                selectedFiles = [];
+                if (filePreview) {
                     this.updateFilePreview(selectedFiles, filePreview);
-                    }
-                    if (fileInput) {
-                    fileInput.value = '';
-                    }
-                } else {
-                    this.sendMessage(message);
                 }
+                if (fileInput) {
+                    fileInput.value = '';
+                }
+            } else {
+                this.sendMessage(rawMessage);
             }
         };
 
-        sendButton.addEventListener('click', sendMessageHandler);
-        
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessageHandler();
+        // Mobile send button handling:
+        // Use Pointer Events when available (most reliable on mobile), fallback to click for mouse.
+        // This avoids the common "tap doesn't click" issues caused by overlays / touch listeners.
+        try {
+            sendButton.style.touchAction = 'manipulation';
+        } catch (_) {}
+
+        // On many mobile browsers a tap can trigger: pointerup -> click.
+        // We handle sending on pointerup for touch/pen, so we must ignore the subsequent synthetic click.
+        let ignoreNextClick = false;
+
+        sendButton.addEventListener('pointerdown', (e) => {
+            // Prevent bubbling into container "focus input" handlers
+            if (e) e.stopPropagation();
+            // Visual feedback only
+            sendButton.classList.add('is-pressing');
+        }, { passive: true });
+
+        sendButton.addEventListener('pointerup', (e) => {
+            sendButton.classList.remove('is-pressing');
+            if (e) e.stopPropagation();
+            // For touch/pen: handle here. For mouse: let click handle it (prevents double-send).
+            if (e && e.pointerType && e.pointerType !== 'mouse') {
+                ignoreNextClick = true;
+                setTimeout(() => { ignoreNextClick = false; }, 400);
+                sendMessageHandler(e);
             }
+        }, { passive: false });
+
+        sendButton.addEventListener('pointercancel', () => {
+            sendButton.classList.remove('is-pressing');
+        }, { passive: true });
+
+        // Mouse / desktop fallback (guard against synthetic click after touch)
+        sendButton.addEventListener('click', (e) => {
+            if (e) e.stopPropagation();
+            if (ignoreNextClick) {
+                if (e) e.preventDefault();
+                return;
+            }
+            sendMessageHandler(e);
         });
 
-        // Handle Enter key for file uploads too
+        // Multiline textarea behavior:
+        // - Mobile: Enter inserts newline (no auto-send)
+        // - Desktop: Enter sends, Shift+Enter inserts newline
+        // - Any: Ctrl/Cmd+Enter sends
         chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key !== 'Enter') return;
+            if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
-                sendMessageHandler();
+                sendMessageHandler(e);
+                return;
+            }
+            if (this.isMobileBrowser()) {
+                // allow default newline behavior
+                return;
+            }
+            if (!e.shiftKey) {
+                e.preventDefault();
+                sendMessageHandler(e);
             }
         });
 
-        // Add input validation and visual feedback
+        // Visual feedback for input state:
+        // Keep mobile send button full-color (no gray/opacity changes).
         chatInput.addEventListener('input', () => {
+            if (this.isMobileBrowser()) {
+                sendButton.style.opacity = '1';
+                return;
+            }
             const isEmpty = !chatInput.value.trim() && (!this.config.enableFileUpload || selectedFiles.length === 0);
-            const isDisabled = this.isWaitingForResponse || this.isTypewriterActive;
-            sendButton.disabled = isEmpty || isDisabled;
-            sendButton.style.opacity = sendButton.disabled ? '0.5' : '1';
+            const isProcessing = this.isWaitingForResponse || this.isTypewriterActive;
+            sendButton.style.opacity = isProcessing ? '0.6' : (isEmpty ? '0.7' : '1');
         });
+
+        // Autosize textarea (mobile + desktop)
+        const autosize = () => {
+            try {
+                chatInput.style.height = 'auto';
+                const max = 140; // px
+                const next = Math.min(chatInput.scrollHeight, max);
+                chatInput.style.height = `${next}px`;
+            } catch (_) {}
+        };
+        autosize();
+        chatInput.addEventListener('input', autosize);
 
             // 🚀 Enhanced input handling for both mobile and desktop
         if (this.isMobileBrowser() && this.config.enableEnhancedMobileInput) {
@@ -3596,23 +3642,42 @@ class EasyChatWidget {
             chatMessages.style.overscrollBehavior = 'contain';
         }
 
-        // Responsive handlers
-        window.addEventListener('resize', () => {
-            if (window.innerWidth <= 480) {
-                chatWindow.style.height = `${window.innerHeight}px`;
-            } else {
-                chatWindow.style.height = '';
+        // Responsive handlers (mobile-safe):
+        // Use visualViewport when available so the input isn't cut off by mobile browser UI / nav bars.
+        const getMobileViewportHeight = () => {
+            try {
+                const vv = window.visualViewport;
+                return vv && vv.height ? vv.height : window.innerHeight;
+            } catch (_) {
+                return window.innerHeight;
             }
-        });
+        };
+
+        const applyMobileHeight = () => {
+            if (window.innerWidth <= 480) {
+                // Use CSS variable because many mobile fullscreen rules use !important height.
+                // This prevents the bottom input from being cut by browser UI / phone nav bar.
+                chatWindow.style.setProperty('--chat-mobile-vh', `${Math.round(getMobileViewportHeight())}px`);
+            } else {
+                chatWindow.style.removeProperty('--chat-mobile-vh');
+            }
+        };
+
+        window.addEventListener('resize', applyMobileHeight);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', applyMobileHeight);
+            window.visualViewport.addEventListener('scroll', applyMobileHeight);
+        }
 
         window.addEventListener('orientationchange', () => {
             setTimeout(() => {
-                if (window.innerWidth <= 480) {
-                    chatWindow.style.height = `${window.innerHeight}px`;
-                }
+                applyMobileHeight();
                 chatMessages.scrollTop = chatMessages.scrollHeight;
-            }, 100);
+            }, 150);
         });
+
+        // Apply once on init
+        applyMobileHeight();
 
         // Add visual feedback for disabled state
         const style = document.createElement('style');
@@ -3641,59 +3706,6 @@ class EasyChatWidget {
             }
         `;
         document.head.appendChild(style);
-
-    // Add mobile input handling - improved cursor management
-    if (window.innerWidth <= 480) {
-        const chatInput = this.widget.querySelector('.chat-input input');
-        const inputContainer = this.widget.querySelector('.chat-input');
-
-        // Function to activate cursor only when input is focused
-        const activateCursor = () => {
-            if (!this.isWaitingForResponse && !this.isTypewriterActive) {
-                chatInput.classList.add('cursor-active');
-                chatInput.removeAttribute('readonly'); // Allow focus
-            }
-        };
-
-        // Function to deactivate cursor
-        const deactivateCursor = () => {
-            chatInput.classList.remove('cursor-active');
-            chatInput.setAttribute('readonly', 'true'); // Prevent focus
-        };
-
-        // Handle input container clicks
-        inputContainer.addEventListener('click', (e) => {
-            if (e.target === inputContainer || e.target === chatInput) {
-                e.preventDefault();
-                activateCursor();
-            }
-        });
-
-        // Prevent default touch behavior
-        chatInput.addEventListener('touchstart', (e) => {
-            if (!chatInput.classList.contains('cursor-active')) {
-                e.preventDefault();
-            }
-        });
-
-        // Handle focus events
-        chatInput.addEventListener('focus', (e) => {
-            if (!chatInput.classList.contains('cursor-active')) {
-                e.preventDefault();
-                deactivateCursor();
-            }
-        });
-
-        // Deactivate cursor when input loses focus
-        chatInput.addEventListener('blur', () => {
-            if (!chatInput.value) {
-                deactivateCursor();
-            }
-        });
-
-        // Ensure input starts in a readonly state
-        chatInput.setAttribute('readonly', 'true');
-    }
 
     }
     setupSuggestionChips() {
@@ -3913,15 +3925,16 @@ class EasyChatWidget {
     }
 
     disableSendingFunctionality() {
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const sendButton = this.widget.querySelector('.send-button');
         
         // Don't disable the input box, only make it read-only
         chatInput.readOnly = false;
         
-        // Disable send button and chips
-        sendButton.disabled = true;
-        sendButton.style.opacity = '0.5';
+        // Visual feedback only - don't actually disable button
+        // Keep mobile button full color
+        sendButton.style.opacity = this.isMobileBrowser() ? '1' : '0.6';
+        sendButton.style.pointerEvents = 'auto'; // Keep clickable
         this.disableChips();
         
         // Add visual indication that sending is disabled
@@ -3933,13 +3946,13 @@ class EasyChatWidget {
             return; // Don't enable if still waiting for response or typing
         }
 
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const sendButton = this.widget.querySelector('.send-button');
         
         // Enable everything back
         chatInput.readOnly = false;
-        sendButton.disabled = false;
         sendButton.style.opacity = '1';
+        sendButton.style.pointerEvents = 'auto';
         this.enableChips();
         
         // Remove waiting indication
@@ -3948,7 +3961,7 @@ class EasyChatWidget {
     
     forceEnableInput() {
         // Force enable input functionality regardless of state - used for error recovery
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const sendButton = this.widget.querySelector('.send-button');
         
         if (chatInput) {
@@ -3960,7 +3973,6 @@ class EasyChatWidget {
         }
         
         if (sendButton) {
-            sendButton.disabled = false;
             sendButton.style.opacity = '1';
             sendButton.style.pointerEvents = 'auto';
         }
@@ -4027,11 +4039,12 @@ class EasyChatWidget {
                 chatWindow.style.setProperty('right', '0', 'important');
                 chatWindow.style.setProperty('bottom', '0', 'important');
                 chatWindow.style.setProperty('width', '100vw', 'important');
-                chatWindow.style.setProperty('height', '100vh', 'important');
+                // Use dynamic viewport height to avoid bottom phone nav/browser UI cutting the input
+                chatWindow.style.setProperty('height', 'var(--chat-mobile-vh, 100dvh)', 'important');
                 chatWindow.style.setProperty('min-width', '100vw', 'important');
                 chatWindow.style.setProperty('max-width', '100vw', 'important');
-                chatWindow.style.setProperty('min-height', '100vh', 'important');
-                chatWindow.style.setProperty('max-height', '100vh', 'important');
+                chatWindow.style.setProperty('min-height', 'var(--chat-mobile-vh, 100dvh)', 'important');
+                chatWindow.style.setProperty('max-height', 'var(--chat-mobile-vh, 100dvh)', 'important');
                 chatWindow.style.setProperty('margin', '0', 'important');
                 chatWindow.style.setProperty('padding', '0', 'important');
                 chatWindow.style.setProperty('border', 'none', 'important');
@@ -4259,7 +4272,7 @@ class EasyChatWidget {
         }
     
         // Get DOM elements
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const typingIndicator = this.widget.querySelector('.typing-indicator');
         const chatWindow = this.widget.querySelector('.chat-window');
     
@@ -4267,7 +4280,12 @@ class EasyChatWidget {
         const resetInputState = () => {
             // Reset input state
             chatInput.value = '';
-            chatInput.setAttribute('readonly', 'true');
+            // Don't re-introduce the mobile readonly/cursor hack when enhanced mobile input is enabled
+            if (!(this.isMobileBrowser() && this.config.enableEnhancedMobileInput)) {
+                chatInput.setAttribute('readonly', 'true');
+            } else {
+                chatInput.removeAttribute('readonly');
+            }
             chatInput.classList.remove('cursor-active');
     
             // Mobile-specific handling
@@ -4379,7 +4397,7 @@ class EasyChatWidget {
     toggleChat() {
         const chatWindow = this.widget.querySelector('.chat-window');
         const chatToggle = this.widget.querySelector('.chat-toggle');
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const isActive = chatWindow.classList.contains('active');
         
         if (isActive) {
@@ -4393,7 +4411,7 @@ class EasyChatWidget {
     closeChat() {
         const chatWindow = this.widget.querySelector('.chat-window');
         const chatToggle = this.widget.querySelector('.chat-toggle');
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         
 
         
@@ -4454,7 +4472,7 @@ class EasyChatWidget {
     // Clean open method with proper initialization
     openChat() {
         const chatWindow = this.widget.querySelector('.chat-window');
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const textBox = this.widget.querySelector('.chat-text-box');
         
 
@@ -4482,11 +4500,11 @@ class EasyChatWidget {
                 chatWindow.style.setProperty('right', '0', 'important');
                 chatWindow.style.setProperty('bottom', '0', 'important');
                 chatWindow.style.setProperty('width', '100vw', 'important');
-                chatWindow.style.setProperty('height', '100vh', 'important');
+                chatWindow.style.setProperty('height', 'var(--chat-mobile-vh, 100dvh)', 'important');
                 chatWindow.style.setProperty('min-width', '100vw', 'important');
                 chatWindow.style.setProperty('max-width', '100vw', 'important');
-                chatWindow.style.setProperty('min-height', '100vh', 'important');
-                chatWindow.style.setProperty('max-height', '100vh', 'important');
+                chatWindow.style.setProperty('min-height', 'var(--chat-mobile-vh, 100dvh)', 'important');
+                chatWindow.style.setProperty('max-height', 'var(--chat-mobile-vh, 100dvh)', 'important');
                 chatWindow.style.setProperty('margin', '0', 'important');
                 chatWindow.style.setProperty('padding', '0', 'important');
                 chatWindow.style.setProperty('border', 'none', 'important');
@@ -4682,15 +4700,21 @@ class EasyChatWidget {
             overlay.style.left = '0';
             overlay.style.right = '0';
             overlay.style.bottom = '0';
-            overlay.style.zIndex = '10';
+            // IMPORTANT: do NOT block the send / attach buttons.
+            // This overlay previously intercepted taps and prevented the send button from working on mobile.
+            overlay.style.zIndex = '0';
             overlay.style.background = 'transparent';
             overlay.style.cursor = 'text';
-            overlay.style.pointerEvents = 'auto';
+            overlay.style.pointerEvents = 'none';
             container.style.position = 'relative';
             container.appendChild(overlay);
             
             // Enhanced container handlers
             const handleContainerInteraction = (e, type) => {
+                // Allow normal interaction with real controls inside the input row
+                if (e && e.target && e.target.closest && e.target.closest('.send-button, .file-button')) {
+                    return;
+                }
                 e.preventDefault();
                 e.stopPropagation();
     
@@ -4700,11 +4724,6 @@ class EasyChatWidget {
             container.addEventListener('click', (e) => handleContainerInteraction(e, 'clicked'));
             container.addEventListener('touchstart', (e) => handleContainerInteraction(e, 'touched'));
             container.addEventListener('touchend', (e) => handleContainerInteraction(e, 'touch ended'));
-            
-            // Overlay handlers for maximum coverage
-            overlay.addEventListener('click', (e) => handleContainerInteraction(e, 'overlay clicked'));
-            overlay.addEventListener('touchstart', (e) => handleContainerInteraction(e, 'overlay touched'));
-            overlay.addEventListener('touchend', (e) => handleContainerInteraction(e, 'overlay touch ended'));
         }
         
         // Global click handler to blur when clicking outside chat
@@ -4736,6 +4755,21 @@ class EasyChatWidget {
         }
         
 
+    }
+
+    // Backwards-compatible helper: older code paths call this after sending.
+    // On mobile we simply ensure the textarea is enabled and interactive.
+    enableMobileInputInteraction(inputElement) {
+        if (!inputElement) return;
+        try {
+            inputElement.removeAttribute('readonly');
+            inputElement.disabled = false;
+            inputElement.readOnly = false;
+            inputElement.style.pointerEvents = 'auto';
+            inputElement.style.userSelect = 'text';
+            inputElement.style.webkitUserSelect = 'text';
+            inputElement.style.caretColor = 'auto';
+        } catch (_) {}
     }
     
     // Desktop input system - simple and effective
@@ -4864,7 +4898,7 @@ class EasyChatWidget {
             return;
         }
 
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const typingIndicator = this.widget.querySelector('.typing-indicator');
 
         try {
@@ -4949,7 +4983,11 @@ class EasyChatWidget {
             
             // Ensure input is cleared and reset
             chatInput.value = '';
-            chatInput.setAttribute('readonly', 'true');
+            if (!(this.isMobileBrowser() && this.config.enableEnhancedMobileInput)) {
+                chatInput.setAttribute('readonly', 'true');
+            } else {
+                chatInput.removeAttribute('readonly');
+            }
             chatInput.classList.remove('cursor-active');
 
             if (this.isMobileBrowser()) {
@@ -5310,7 +5348,7 @@ class EasyChatWidget {
             }
 
             // Clear input
-            const chatInput = this.widget.querySelector('.chat-input input');
+            const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
             if (chatInput) {
                 chatInput.value = '';
             }
@@ -5581,11 +5619,11 @@ class EasyChatWidget {
                 chatWindow.style.setProperty('right', '0', 'important');
                 chatWindow.style.setProperty('bottom', '0', 'important');
                 chatWindow.style.setProperty('width', '100vw', 'important');
-                chatWindow.style.setProperty('height', '100vh', 'important');
+                chatWindow.style.setProperty('height', 'var(--chat-mobile-vh, 100dvh)', 'important');
                 chatWindow.style.setProperty('min-width', '100vw', 'important');
                 chatWindow.style.setProperty('max-width', '100vw', 'important');
-                chatWindow.style.setProperty('min-height', '100vh', 'important');
-                chatWindow.style.setProperty('max-height', '100vh', 'important');
+                chatWindow.style.setProperty('min-height', 'var(--chat-mobile-vh, 100dvh)', 'important');
+                chatWindow.style.setProperty('max-height', 'var(--chat-mobile-vh, 100dvh)', 'important');
                 chatWindow.style.setProperty('margin', '0', 'important');
                 chatWindow.style.setProperty('padding', '0', 'important');
                 chatWindow.style.setProperty('border', 'none', 'important');
@@ -6353,6 +6391,8 @@ class EasyChatWidget {
 
         // Create modal overlay within chat window but outside chat messages
         const chatWindow = this.widget.querySelector('.chat-window');
+        // Hide chat input while the form is open (prevents it appearing above/over the modal on mobile)
+        chatWindow.classList.add('form-active');
         const modalOverlay = document.createElement('div');
         modalOverlay.className = 'hubspot-form-modal-overlay';
         modalOverlay.innerHTML = `
@@ -6404,7 +6444,7 @@ class EasyChatWidget {
                 left: 0;
                 right: 0;
                 bottom: 0;
-                z-index: 1000;
+                z-index: 50000;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -6412,6 +6452,13 @@ class EasyChatWidget {
                 pointer-events: auto;
                 overflow: hidden;
                 overscroll-behavior: contain;
+            }
+
+            /* While form is open, hide chat input/chips/branding behind it */
+            .chat-window.form-active .chat-input-container,
+            .chat-window.form-active .suggestion-chips,
+            .chat-window.form-active .chat-branding {
+                display: none !important;
             }
 
             .hubspot-form-modal-backdrop {
@@ -6580,10 +6627,10 @@ class EasyChatWidget {
             }
             
             .hubspot-form input:focus {
-                outline: none;
-                border-color: var(--chat-primary-color, #0084ff);
-                box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.1);
-                background: #ffffff;
+                outline: none !important;
+                border-color: #cbd5e1 !important; /* ash */
+                box-shadow: 0 0 0 3px rgba(203, 213, 225, 0.45) !important;
+                background: #ffffff !important;
             }
             
             .hubspot-form input::placeholder {
@@ -6902,12 +6949,13 @@ class EasyChatWidget {
     }
 
     disableChatFunctionality() {
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const sendButton = this.widget.querySelector('.send-button');
         const chips = this.widget.querySelectorAll('.chip');
 
         chatInput.disabled = true;
-        sendButton.disabled = true;
+        sendButton.style.opacity = this.isMobileBrowser() ? '1' : '0.6';
+        sendButton.style.pointerEvents = 'auto'; // Keep button clickable
         chips.forEach(chip => {
             chip.style.opacity = '0.5';
             chip.style.pointerEvents = 'none';
@@ -6919,18 +6967,27 @@ class EasyChatWidget {
     }
 
     enableChatFunctionality() {
-        const chatInput = this.widget.querySelector('.chat-input input');
+        const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
         const sendButton = this.widget.querySelector('.send-button');
         const chips = this.widget.querySelectorAll('.chip');
 
         // Animate the transition
-        const elements = [chatInput, sendButton, ...chips];
-        elements.forEach((el, index) => {
+        setTimeout(() => {
+            chatInput.disabled = false;
+            chatInput.style.opacity = '1';
+            chatInput.style.pointerEvents = 'auto';
+        }, 0);
+        
+        setTimeout(() => {
+            sendButton.style.opacity = '1';
+            sendButton.style.pointerEvents = 'auto';
+        }, 100);
+        
+        chips.forEach((chip, index) => {
             setTimeout(() => {
-                el.disabled = false;
-                el.style.opacity = '1';
-                el.style.pointerEvents = 'auto';
-            }, index * 100);
+                chip.style.opacity = '1';
+                chip.style.pointerEvents = 'auto';
+            }, 200 + (index * 100));
         });
 
         const inputContainer = chatInput.closest('.chat-input-container');
@@ -6971,6 +7028,9 @@ class EasyChatWidget {
                         }
                         this.activeForm = null;
                         this.activeModal = null;
+                        // Unhide chat input
+                        const chatWindow = this.widget.querySelector('.chat-window');
+                        if (chatWindow) chatWindow.classList.remove('form-active');
                         
                         // Re-enable chat functionality
                         this.enableChatFunctionality();
@@ -6979,6 +7039,8 @@ class EasyChatWidget {
                         // Force cleanup
                         this.activeForm = null;
                         this.activeModal = null;
+                        const chatWindow = this.widget.querySelector('.chat-window');
+                        if (chatWindow) chatWindow.classList.remove('form-active');
                         this.enableChatFunctionality();
                     }
                 }, 300);
@@ -6987,6 +7049,8 @@ class EasyChatWidget {
                 // Force cleanup
                 this.activeForm = null;
                 this.activeModal = null;
+                const chatWindow = this.widget.querySelector('.chat-window');
+                if (chatWindow) chatWindow.classList.remove('form-active');
                 this.enableChatFunctionality();
             }
         } else {
@@ -7265,11 +7329,11 @@ const additionalStyles = `
             right: 0 !important;
             bottom: 0 !important;
             width: 100vw !important;
-            height: 100vh !important;
+            height: var(--chat-mobile-vh, 100dvh) !important;
             min-width: 100vw !important;
             max-width: 100vw !important;
-            min-height: 100vh !important;
-            max-height: 100vh !important;
+            min-height: var(--chat-mobile-vh, 100dvh) !important;
+            max-height: var(--chat-mobile-vh, 100dvh) !important;
             margin: 0 !important;
             padding: 0 !important;
             border: none !important;
@@ -7348,47 +7412,5 @@ const togglePositions = {
     }
 };
 
-// Add to your existing styles
-const additionalMobileStyles = `
-    @media screen and (max-width: 480px) {
-        .chat-input {
-            position: relative;
-            z-index: 1000;
-        }
-        
-        .chat-input input {
-            font-size: 16px !important;
-            -webkit-appearance: none;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 0;
-            width: 100%;
-            box-sizing: border-box;
-            border: 1px solid rgba(0,0,0,0.1);
-            background-color: #ffffff !important;
-            opacity: 1 !important;
-            pointer-events: auto !important;
-        }
-
-        .chat-input input::placeholder {
-            user-select: none;
-            -webkit-user-select: none;
-            pointer-events: none; /* Prevent the placeholder from blocking input focus */
-        }
-        
-        .chat-window.active .chat-input {
-            position: sticky;
-            bottom: 0;
-            background-color: #ffffff;
-            padding: 10px;
-            margin: 0;
-            z-index: 1000;
-        }
-    }
-`;
-
-// Add these styles to your document
-const style = document.createElement('style');
-style.textContent = additionalMobileStyles;
-document.head.appendChild(style);
-
+// NOTE: Removed legacy `additionalMobileStyles` injection.
+// All styling is handled by `loadStyles()` to avoid mobile overrides and conflicts.
