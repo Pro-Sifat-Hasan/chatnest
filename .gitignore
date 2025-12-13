@@ -25,4 +25,5 @@ Thumbs.db
 .env.test.local
 .env.production.local 
 
+# Test files
 test.html
