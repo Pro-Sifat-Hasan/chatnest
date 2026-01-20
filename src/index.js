@@ -7,14 +7,50 @@ class EasyChatWidget {
         this.userManager = new ChatUserManager(this.config);
         this.storageManager = new ChatStorageManager(this.userManager, this.config);
         
+        // Parlant state management
+        if (this.config.parlant.enabled) {
+            // Load Parlant session ID from localStorage if exists
+            const parlantSessionKey = this.config.separateSubpageHistory 
+                ? `parlantSessionId_${this.userManager.domain}${this.userManager.path}`
+                : `parlantSessionId_${this.userManager.domain}`;
+            this.parlantSessionId = localStorage.getItem(parlantSessionKey) || null;
+            
+            this.parlantAgentId = null;
+            this.parlantLastEventOffset = -1;
+            this.parlantPollingInterval = null;
+            this.parlantProcessedMessageOffsets = new Set();
+            this.parlantWaitingForResponse = false;
+            this.parlantIsFirstAgentMessageInSequence = true;
+            this.parlantAgentReadyStatusReceived = false;
+            this.parlantReadyStatusGracePeriodTimer = null;
+            this.parlantConnectionCheckInterval = null;
+            this.parlantCurrentQueryId = null; // Track current query for grouping responses
+            this.parlantQueryResponses = new Map(); // Map queryId -> array of response messages
+            this.parlantTypingIndicatorState = 'thinking'; // 'thinking', 'fetching', 'typing'
+            this.parlantTypingIndicatorTimeout = null; // Timeout for delayed typing indicator
+        }
+        
         this.ensureDependencies().then(() => {
             this.initializeWidget();
             this.setupEventListeners();
             this.storageManager.setWidget(this);
             this.loadChatHistory();
             this.setupEraseButton();
+            
+            // Initialize Parlant if enabled
+            if (this.config.parlant.enabled) {
+                this.initializeParlant();
+            }
         });
         this.activeForm = null; // Add this to track active form
+        
+        // Register instance for cleanup
+        if (typeof window !== 'undefined') {
+            if (!window.chatWidgetInstances) {
+                window.chatWidgetInstances = [];
+            }
+            window.chatWidgetInstances.push(this);
+        }
         // Validate position
         if (!togglePositions[this.config.position]) {
             console.warn(`Invalid position "${this.config.position}". Falling back to bottom-right.`);
@@ -85,7 +121,20 @@ class EasyChatWidget {
     applyTheme() {
         const theme = this.getCurrentTheme();
         if (this.widget) {
-            this.widget.className = `chat-widget ${theme}-theme`;
+            const classes = new Set(this.widget.className.split(/\s+/).filter(Boolean));
+            [...classes].forEach((name) => {
+                if (name.endsWith('-theme')) {
+                    classes.delete(name);
+                }
+            });
+            classes.add('chat-widget');
+            classes.add(`${theme}-theme`);
+            if (this.config.parlant.enabled) {
+                classes.add('parlant-mode');
+            } else {
+                classes.delete('parlant-mode');
+            }
+            this.widget.className = Array.from(classes).join(' ');
         }
         
         // Listen for system theme changes if using 'system' theme
@@ -444,7 +493,7 @@ class EasyChatWidget {
             // Text box configuration (floating message above toggle button)
             showTextBox: config.showTextBox !== false, // Show floating text box above toggle button (default: true)
             textBoxMessage: config.textBoxMessage || 'Hi there! If you need any assistance, I am always here.', // Main text message in the box
-            textBoxSubMessage: config.textBoxSubMessage || '💬 24/7 Live Chat Support', // Sub message in the box (appears after line separator)
+            textBoxSubMessage: config.textBoxSubMessage || '24/7 Live Chat Support', // Sub message in the box (appears after line separator)
             showTextBoxCloseButton: config.showTextBoxCloseButton !== false, // Show close button on text box (default: true)
             
             // Toggle button animation configuration
@@ -460,7 +509,13 @@ class EasyChatWidget {
             textBoxSpacingFromToggle: config.textBoxSpacingFromToggle !== undefined ? Math.max(0, Math.min(30, parseInt(config.textBoxSpacingFromToggle))) : 0, // Spacing between text box and toggle button (0px - 30px, default: 0px for touching)
             
             // Text box text color configuration
-            textBoxTextColor: config.textBoxTextColor || 'primary' // Text color for text box content ('primary' to use primary color, or any CSS color value)
+            textBoxTextColor: config.textBoxTextColor || 'primary', // Text color for text box content ('primary' to use primary color, or any CSS color value)
+            
+            // Parlant configuration
+            parlant: {
+                enabled: config.parlant?.enabled || false,
+                apiBaseUrl: config.parlant?.apiBaseUrl || ''
+            }
         };
     }
 
@@ -492,12 +547,466 @@ class EasyChatWidget {
         });
     }
 
+    // ========== Parlant Integration Methods ==========
+    
+    // Initialize Parlant connection
+    async initializeParlant() {
+        if (!this.config.parlant.enabled || !this.config.parlant.apiBaseUrl) return;
+        
+        try {
+            await this.checkParlantAPIConnection();
+            // Try to get agent ID on load
+            try {
+                await this.parlantGetAgentId();
+            } catch (error) {
+                // Silent fail - agent ID will be fetched when needed
+            }
+        } catch (error) {
+            // Silent fail - connection will be checked when needed
+        }
+
+    }
+
+    // Check Parlant API connection
+    async checkParlantAPIConnection() {
+        if (!this.config.parlant.enabled || !this.config.parlant.apiBaseUrl) return false;
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const response = await fetch(`${this.config.parlant.apiBaseUrl}/healthz`, {
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                return true;
+            } else {
+                throw new Error('Health check failed');
+            }
+        } catch (error) {
+            return false;
+        }
+    }
+
+    // Get Parlant agent ID
+    async parlantGetAgentId() {
+        if (this.parlantAgentId) {
+            return this.parlantAgentId;
+        }
+        
+        if (!this.config.parlant.apiBaseUrl) {
+            throw new Error('Parlant API base URL is not configured');
+        }
+        
+        try {
+            const response = await fetch(`${this.config.parlant.apiBaseUrl}/agents`);
+            if (response.ok) {
+                const agents = await response.json();
+                if (agents && agents.length > 0) {
+                    this.parlantAgentId = agents[0].id;
+                    return this.parlantAgentId;
+                } else {
+                    throw new Error('No agents found. Please create an agent first.');
+                }
+            } else {
+                throw new Error(`Failed to fetch agents: ${response.status}`);
+            }
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Create a Parlant session
+    async parlantCreateSession() {
+        if (this.parlantSessionId) {
+            return this.parlantSessionId;
+        }
+        
+        if (!this.config.parlant.apiBaseUrl) {
+            throw new Error('Parlant API base URL is not configured');
+        }
+        
+        try {
+            const agentId = await this.parlantGetAgentId();
+            
+            const response = await fetch(`${this.config.parlant.apiBaseUrl}/sessions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    mode: 'auto' // Auto mode so agent responds automatically
+                }),
+            });
+            
+            if (response.ok) {
+                const session = await response.json();
+                this.parlantSessionId = session.id;
+                return this.parlantSessionId;
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || errorData.message || `Failed to create session: ${response.status}`);
+            }
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Send user message as Parlant event
+    async parlantSendUserMessage(message) {
+        if (!this.config.parlant.apiBaseUrl) {
+            throw new Error('Parlant API base URL is not configured');
+        }
+        
+        try {
+            const sessionId = await this.parlantCreateSession();
+            
+            const response = await fetch(`${this.config.parlant.apiBaseUrl}/sessions/${sessionId}/events`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    kind: 'message',
+                    source: 'customer',
+                    message: message
+                }),
+            });
+            
+            if (response.ok) {
+                const event = await response.json();
+                this.parlantLastEventOffset = event.offset;
+                return event;
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || errorData.message || `Failed to send message: ${response.status}`);
+            }
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Poll for Parlant agent responses
+    async parlantPollForAgentResponse() {
+        if (!this.parlantSessionId || !this.config.parlant.apiBaseUrl) {
+            return;
+        }
+        
+        try {
+            const pollOffset = this.parlantLastEventOffset + 1;
+            const response = await fetch(
+                `${this.config.parlant.apiBaseUrl}/sessions/${this.parlantSessionId}/events?offset=${pollOffset}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                const events = Array.isArray(data) ? data : (data.items || []);
+                
+                let receivedNewMessage = false;
+                
+                for (const event of events) {
+                    // Skip events we've already processed
+                    if (event.offset <= this.parlantLastEventOffset) {
+                        continue;
+                    }
+                    
+                    // Update offset to latest for all events
+                    if (event.offset > this.parlantLastEventOffset) {
+                        this.parlantLastEventOffset = event.offset;
+                    }
+                    
+                    // Track all agent events
+                    if (event.source === 'ai_agent') {
+                        window.lastParlantAgentEventTime = Date.now();
+                    }
+                    
+                    // Check for "ready" status - agent has finished responding
+                    if (event.kind === 'status' && event.source === 'ai_agent' && 
+                        event.data && event.data.status === 'ready') {
+                        this.parlantAgentReadyStatusReceived = true;
+                        
+                        // Clear any existing grace period timer
+                        if (this.parlantReadyStatusGracePeriodTimer) {
+                            clearTimeout(this.parlantReadyStatusGracePeriodTimer);
+                        }
+                        
+                        // Wait 3 seconds after ready status for any final messages
+                        this.parlantReadyStatusGracePeriodTimer = setTimeout(() => {
+                            if (this.parlantAgentReadyStatusReceived && this.parlantWaitingForResponse) {
+                                if (this.parlantProcessedMessageOffsets.size > 0) {
+                                    // Update last bot message to show action buttons on last message of query
+                                    this.updateLastBotMessage();
+                                    this.parlantStopPolling();
+                                    this.parlantWaitingForResponse = false;
+                                    this.parlantAgentReadyStatusReceived = false;
+                                    // Cancel delayed typing indicator if still pending
+                                    if (this.parlantTypingIndicatorTimeout) {
+                                        clearTimeout(this.parlantTypingIndicatorTimeout);
+                                        this.parlantTypingIndicatorTimeout = null;
+                                    }
+                                    
+                                    // Remove typing indicator (Parlant-specific)
+                                    const typingIndicator = this.widget?.querySelector('.typing-indicator');
+                                    if (typingIndicator && typingIndicator.classList.contains('active')) {
+                                        typingIndicator.classList.remove('active');
+                                        this.stopJavaScriptTypingAnimation();
+                                    }
+                                } else {
+                                    // No messages yet - wait another 2 seconds
+                                    this.parlantReadyStatusGracePeriodTimer = setTimeout(() => {
+                                        if (this.parlantAgentReadyStatusReceived && this.parlantWaitingForResponse && 
+                                            this.parlantProcessedMessageOffsets.size === 0) {
+                                            // Cancel delayed typing indicator if still pending
+                                            if (this.parlantTypingIndicatorTimeout) {
+                                                clearTimeout(this.parlantTypingIndicatorTimeout);
+                                                this.parlantTypingIndicatorTimeout = null;
+                                            }
+                                            
+                                            // Remove typing indicator when no response (Parlant-specific)
+                                            const typingIndicator = this.widget?.querySelector('.typing-indicator');
+                                            if (typingIndicator && typingIndicator.classList.contains('active')) {
+                                                typingIndicator.classList.remove('active');
+                                                this.stopJavaScriptTypingAnimation();
+                                            }
+                                            this.parlantStopPolling();
+                                            this.parlantWaitingForResponse = false;
+                                            this.parlantAgentReadyStatusReceived = false;
+                                            this.parlantCurrentQueryId = null; // Clear current query
+                                        }
+                                    }, 2000);
+                                }
+                            }
+                        }, 3000);
+                    }
+                    
+                    // Show typing indicator when waiting for response (smooth like Parlant-ui)
+                    if (this.parlantWaitingForResponse && !this.parlantProcessedMessageOffsets.size) {
+                        const typingIndicator = this.widget?.querySelector('.typing-indicator');
+                        if (!typingIndicator || !typingIndicator.classList.contains('active')) {
+                            // Show typing indicator if not already shown - activate it smoothly
+                            const chatMessages = this.widget?.querySelector('.chat-messages');
+                            if (chatMessages) {
+                                const existingIndicator = chatMessages.querySelector('.typing-indicator');
+                                if (existingIndicator) {
+                                    existingIndicator.classList.add('active');
+                                    this.updateParlantTypingIndicator('thinking');
+                                    this.startJavaScriptTypingAnimation();
+                                    const spacer = chatMessages.querySelector('.chat-spacer');
+                                    if (spacer) {
+                                        chatMessages.insertBefore(existingIndicator, spacer);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Check for "typing" or "processing" status - agent is active
+                    if (event.kind === 'status' && event.source === 'ai_agent' && 
+                        event.data && (event.data.status === 'typing' || event.data.status === 'processing')) {
+                        // Reset ready status if agent becomes active again
+                        if (this.parlantAgentReadyStatusReceived) {
+                            this.parlantAgentReadyStatusReceived = false;
+                            if (this.parlantReadyStatusGracePeriodTimer) {
+                                clearTimeout(this.parlantReadyStatusGracePeriodTimer);
+                                this.parlantReadyStatusGracePeriodTimer = null;
+                            }
+                        }
+                        
+                        // Keep typing indicator as "Thinking" - smooth and simple
+                        this.updateParlantTypingIndicator('thinking');
+                        
+                        // Show typing indicator for each response
+                        const typingIndicator = this.widget?.querySelector('.typing-indicator');
+                        if (typingIndicator && !typingIndicator.classList.contains('active')) {
+                            typingIndicator.classList.add('active');
+                            this.startJavaScriptTypingAnimation();
+                        }
+                    }
+                    
+                    // Handle message events from AI agent
+                    if (event.kind === 'message' && event.source === 'ai_agent') {
+                        // Skip if we've already processed this message
+                        if (this.parlantProcessedMessageOffsets.has(event.offset)) {
+                            continue;
+                        }
+                        
+                        // Reset ready status if we receive a new message
+                        if (this.parlantAgentReadyStatusReceived) {
+                            this.parlantAgentReadyStatusReceived = false;
+                            if (this.parlantReadyStatusGracePeriodTimer) {
+                                clearTimeout(this.parlantReadyStatusGracePeriodTimer);
+                                this.parlantReadyStatusGracePeriodTimer = null;
+                            }
+                        }
+                        
+                        receivedNewMessage = true;
+                        
+                        // Extract message text from event
+                        let messageText = '';
+                        
+                        if (event.data && typeof event.data === 'object' && event.data.message) {
+                            messageText = event.data.message;
+                        } else if (event.message) {
+                            messageText = event.message;
+                        } else if (event.data && typeof event.data === 'string') {
+                            messageText = event.data;
+                        } else if (event.data && event.data.text) {
+                            messageText = event.data.text;
+                        } else if (event.data && event.data.content) {
+                            messageText = event.data.content;
+                        }
+                        
+                        if (messageText) {
+                            // Track response for current query
+                            if (this.parlantCurrentQueryId) {
+                                const responses = this.parlantQueryResponses.get(this.parlantCurrentQueryId) || [];
+                                responses.push(messageText);
+                                this.parlantQueryResponses.set(this.parlantCurrentQueryId, responses);
+                            }
+                            
+                            // Keep typing indicator active while waiting for more responses
+                            // Cancel the delayed typing indicator if it hasn't shown yet
+                            if (this.parlantTypingIndicatorTimeout) {
+                                clearTimeout(this.parlantTypingIndicatorTimeout);
+                                this.parlantTypingIndicatorTimeout = null;
+                            }
+                            
+                            // Add message to chat
+                            this.addMessage(messageText, 'bot', true);
+                            
+                            // Store message with query ID for proper grouping
+                            let queryId = this.parlantCurrentQueryId;
+                            if (!queryId) {
+                                queryId = `query_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                                this.parlantCurrentQueryId = queryId;
+                            }
+                            this.storageManager.saveParlantMessage(messageText, 'bot', queryId);
+                            
+                            // After first message, subsequent messages won't show avatar
+                            if (this.parlantIsFirstAgentMessageInSequence) {
+                                this.parlantIsFirstAgentMessageInSequence = false;
+                            }
+                            
+                            this.parlantProcessedMessageOffsets.add(event.offset);
+                            window.lastParlantAgentMessageTime = Date.now();
+                            
+                            // Mark this message row with query ID for action button logic
+                            const messageRows = this.widget.querySelectorAll('.message-row');
+                            const lastRow = messageRows[messageRows.length - 1];
+                            if (lastRow && this.parlantCurrentQueryId) {
+                                lastRow.setAttribute('data-query-id', this.parlantCurrentQueryId);
+                                // Also mark the bot message container
+                                const botContainer = lastRow.querySelector('.bot-message-container');
+                                if (botContainer) {
+                                    botContainer.setAttribute('data-query-id', this.parlantCurrentQueryId);
+                                }
+                            }
+                            
+                            // Update last bot message to show action buttons on last message of query
+                            this.updateLastBotMessage();
+                        } else {
+                            // Silent fail - could not extract message
+                        }
+                    }
+                }
+                
+            } else if (response.status === 504) {
+                // Gateway timeout - this is expected when waiting for new events
+            } else if (response.status === 404) {
+                // Session not found - connection issue (silent)
+            } else {
+                // Error polling (silent)
+            }
+        } catch (error) {
+            // Network errors - connection might be lost (silent)
+        }
+    }
+
+    // Start polling for Parlant responses
+    parlantStartPolling() {
+        if (this.parlantPollingInterval) {
+            clearInterval(this.parlantPollingInterval);
+        }
+        
+        // Poll every 800ms for better responsiveness
+        this.parlantPollingInterval = setInterval(() => {
+            this.parlantPollForAgentResponse();
+        }, 800);
+    }
+
+    // Stop polling for Parlant responses
+    parlantStopPolling() {
+        if (this.parlantPollingInterval) {
+            clearInterval(this.parlantPollingInterval);
+            this.parlantPollingInterval = null;
+        }
+        
+        // Clean up safety timeout
+        if (window.currentParlantSafetyTimeout) {
+            clearTimeout(window.currentParlantSafetyTimeout);
+            window.currentParlantSafetyTimeout = null;
+        }
+        
+        // Clean up grace period timer
+        if (this.parlantReadyStatusGracePeriodTimer) {
+            clearTimeout(this.parlantReadyStatusGracePeriodTimer);
+            this.parlantReadyStatusGracePeriodTimer = null;
+        }
+    }
+
+    // Cleanup Parlant resources
+    cleanupParlant() {
+        if (this.config.parlant.enabled) {
+            this.parlantStopPolling();
+            
+            // Clean up connection check interval if it exists
+            if (this.parlantConnectionCheckInterval) {
+                clearInterval(this.parlantConnectionCheckInterval);
+                this.parlantConnectionCheckInterval = null;
+            }
+        }
+    }
+
+    // Update Parlant typing indicator text
+    updateParlantTypingIndicator(state) {
+        if (!this.config.parlant.enabled) return;
+        
+        const typingIndicator = this.widget?.querySelector('.typing-indicator');
+        if (!typingIndicator) return;
+        
+        // Always use 'thinking' state - no need for fetching/typing states
+        this.parlantTypingIndicatorState = 'thinking';
+        let typingText = typingIndicator.querySelector('.typing-text');
+        
+        // Create typing-text if it doesn't exist
+        if (!typingText) {
+            typingText = document.createElement('div');
+            typingText.className = 'typing-text';
+            typingIndicator.insertBefore(typingText, typingIndicator.firstChild);
+        }
+        
+        // Always show "Thinking" - smooth and simple like Parlant-ui
+        typingText.textContent = 'Thinking';
+    }
+
+
     loadStyles() {
         // Apply theme first
         this.applyTheme();
         
         const style = document.createElement('style');
         style.textContent = `
+            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap');
             :root {
                 --chat-primary-color: ${this.config.primaryColor};
                 --chat-primary-color-gradient: ${this.isGradient(this.config.primaryColor) ? this.config.primaryColor : this.config.primaryColor};
@@ -1173,6 +1682,7 @@ class EasyChatWidget {
                 display: flex;
                 align-items: flex-start;
                 gap: 0.5rem;
+                overflow: visible !important;
             }
 
             /* Chat spacer to ensure new messages and responses are visible */
@@ -1341,6 +1851,29 @@ class EasyChatWidget {
                 flex-direction: column;
                 align-items: flex-start;
                 margin-bottom: 1rem;
+                position: relative;
+                overflow: visible;
+            }
+
+            /* Reduce spacing between multiple responses from same query (Parlant) */
+            .bot-message-container[data-query-id] + .bot-message-container[data-query-id] {
+                margin-top: 0.25rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            /* Add larger spacing between different queries */
+            .message-row[data-query-id] {
+                margin-bottom: 0.5rem;
+            }
+            
+            /* When moving from one query to another (query-id changes), add more spacing */
+            .message-row[data-query-id] + .message-row:not([data-query-id]),
+            .message-row:not([data-query-id]) + .message-row[data-query-id] {
+                margin-top: 1rem;
+            }
+
+            .bot-message {
+                position: relative;
             }
             
             .ai-avatar {
@@ -2805,6 +3338,27 @@ class EasyChatWidget {
                 flex-direction: column;
             }
 
+            /* Reduce spacing between multiple responses from same query (Parlant) */
+            .bot-message-container[data-query-id] + .bot-message-container[data-query-id] {
+                margin-top: 0.25rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            /* Add larger spacing between different queries */
+            .message-row[data-query-id] {
+                margin-bottom: 0.5rem;
+            }
+            
+            /* When moving from one query to another (query-id changes), add more spacing */
+            .message-row[data-query-id] + .message-row:not([data-query-id]),
+            .message-row:not([data-query-id]) + .message-row[data-query-id] {
+                margin-top: 1rem;
+            }
+
+            .bot-message {
+                position: relative;
+            }
+
             /* Copied tooltip */
             .copy-btn.copied::after {
                 content: 'Copied!';
@@ -2818,6 +3372,92 @@ class EasyChatWidget {
                 border-radius: 4px;
                 font-size: 12px;
                 pointer-events: none;
+            }
+
+            /* Copy button on bot messages (right side) - always visible, outside text container */
+            .bot-message-container {
+                overflow: visible !important;
+            }
+            
+            .message-copy-btn.bot-copy-btn {
+                position: absolute;
+                right: -36px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: rgba(255, 255, 255, 0.95);
+                border: 1px solid #e4e6eb;
+                border-radius: 4px;
+                padding: 4px;
+                cursor: pointer;
+                opacity: 1 !important;
+                transition: opacity 0.2s ease, background 0.2s ease;
+                width: 24px;
+                height: 24px;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+                z-index: 10;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .bot-message-container:hover .bot-copy-btn,
+            .bot-message:hover .bot-copy-btn {
+                background: rgba(255, 255, 255, 1);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+            }
+
+            .bot-copy-btn img {
+                width: 14px;
+                height: 14px;
+            }
+
+            .bot-copy-btn:hover {
+                background: #f0f2f5;
+            }
+
+            /* Copy button on user messages (left side) - always visible, outside text container */
+            .user-message-container {
+                overflow: visible !important;
+                position: relative;
+            }
+            
+            .message-copy-btn.user-copy-btn {
+                position: absolute;
+                left: -36px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: rgba(255, 255, 255, 0.95);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                border-radius: 4px;
+                padding: 4px;
+                cursor: pointer;
+                opacity: 1 !important;
+                transition: opacity 0.2s ease, background 0.2s ease;
+                width: 24px;
+                height: 24px;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+                z-index: 10;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .user-message {
+                position: relative;
+            }
+
+            .user-message:hover .user-copy-btn {
+                background: rgba(255, 255, 255, 1);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+            }
+
+            .user-copy-btn img {
+                width: 14px;
+                height: 14px;
+            }
+
+            .user-copy-btn:hover {
+                background: rgba(255, 255, 255, 0.2);
             }
 
             .message-actions {
@@ -3228,6 +3868,204 @@ class EasyChatWidget {
                 user-select: text;
                 -webkit-user-select: text;
             }
+
+            /* --- Refined UI overrides (Parlant-inspired) --- */
+            .chat-widget,
+            .chat-widget * {
+                font-family: "Manrope", "Segoe UI", sans-serif;
+            }
+
+            .chat-window {
+                background: #f8fafc;
+                border: 1px solid rgba(15, 23, 42, 0.08);
+                box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+            }
+
+            .chat-header {
+                background: var(--chat-primary-color-gradient);
+            }
+
+            .chat-header-title h2 {
+                font-size: 18px;
+                letter-spacing: 0.2px;
+            }
+
+            .chat-header-subname {
+                font-size: 12px;
+                opacity: 0.85;
+            }
+
+
+            .chat-messages {
+                background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+                padding: 20px;
+                gap: 10px;
+            }
+
+            .message-row {
+                gap: 10px;
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .message-row.user-row {
+                justify-content: flex-end;
+            }
+
+            .message-row.bot-row {
+                justify-content: flex-start;
+            }
+
+            .message-row[data-query-id] {
+                margin-bottom: 0.25rem;
+            }
+
+            .message-row[data-query-id] + .message-row[data-query-id] {
+                margin-top: 0.2rem;
+            }
+
+            .bot-message-container,
+            .user-message-container {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .bot-message-container {
+                margin-bottom: 0.4rem;
+                max-width: 80%;
+            }
+
+            .bot-message-container[data-query-id] + .bot-message-container[data-query-id] {
+                margin-top: 0.2rem;
+                margin-bottom: 0.3rem;
+            }
+
+            .user-message-container {
+                max-width: 80%;
+            }
+
+            .chat-widget.parlant-mode .bot-message-container:hover .message-actions {
+                display: none !important;
+                opacity: 0 !important;
+            }
+
+            .chat-widget.parlant-mode .bot-message-container.last .message-actions {
+                display: flex !important;
+                opacity: 1 !important;
+            }
+
+            .chat-widget.parlant-mode .message-row[data-query-id] {
+                margin-bottom: 0.2rem !important;
+            }
+
+            .chat-widget.parlant-mode .message-row[data-query-id] + .message-row[data-query-id] {
+                margin-top: 0.1rem !important;
+            }
+
+            .chat-widget.parlant-mode .bot-message-container[data-query-id] + .bot-message-container[data-query-id] {
+                margin-top: 0.1rem !important;
+                margin-bottom: 0.2rem !important;
+            }
+
+            .user-message-container {
+                align-items: flex-end;
+            }
+
+            .message-line {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                max-width: 100%;
+            }
+
+            .user-message-line {
+                justify-content: flex-end;
+            }
+
+            .bot-message {
+                background: #ffffff !important;
+                border: 1px solid rgba(15, 23, 42, 0.08);
+                border-radius: 18px;
+                border-top-left-radius: 6px;
+                box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+                color: #0f172a;
+            }
+
+            .user-message {
+                background: var(--chat-primary-color-gradient);
+                border-radius: 18px;
+                border-top-right-radius: 6px;
+                color: #ffffff;
+                box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+            }
+
+            .user-message-line .user-message {
+                margin-left: 0;
+            }
+
+            .message-content {
+                font-size: var(--chat-message-font-size);
+                line-height: 1.5;
+            }
+
+            .message-copy-btn {
+                position: relative !important;
+                transform: none !important;
+                top: auto !important;
+                right: auto !important;
+                left: auto !important;
+                width: 28px;
+                height: 28px;
+                border-radius: 8px;
+                border: 1px solid rgba(15, 23, 42, 0.12);
+                background: #ffffff;
+                box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+                transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            }
+
+            .message-copy-btn img {
+                width: 14px;
+                height: 14px;
+                opacity: 0.75;
+            }
+
+            .user-message-line .message-copy-btn {
+                background: rgba(255, 255, 255, 0.9);
+                border-color: rgba(255, 255, 255, 0.4);
+            }
+
+            .message-copy-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+            }
+
+            .message-copy-btn.active,
+            .message-copy-btn.copied {
+                background: var(--chat-primary-color-gradient);
+                border-color: transparent;
+            }
+
+            .message-copy-btn.active img,
+            .message-copy-btn.copied img {
+                filter: brightness(0) invert(1);
+                opacity: 1;
+            }
+
+            .message-copy-btn.copied::after {
+                content: "Copied!";
+                position: absolute;
+                top: -28px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(15, 23, 42, 0.9);
+                color: #ffffff;
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-size: 11px;
+                pointer-events: none;
+                white-space: nowrap;
+            }
         `;
         
         // Remove any existing chat widget styles
@@ -3241,7 +4079,7 @@ class EasyChatWidget {
 
     createWidget() {
         const widget = document.createElement('div');
-        widget.className = `chat-widget ${this.config.theme} ${this.config.position}`;
+        widget.className = `chat-widget ${this.config.theme}-theme ${this.config.position}${this.config.parlant.enabled ? ' parlant-mode' : ''}`;
         
         // Get position styles
         const positionStyle = togglePositions[this.config.position];
@@ -4114,12 +4952,15 @@ class EasyChatWidget {
         }
     }
 
-    addMessage(text, sender, useTypewriter = true) {
+    addMessage(text, sender, useTypewriter = true, meta = {}) {
         const chatMessages = this.widget.querySelector('.chat-messages');
         const typingIndicator = this.widget.querySelector('.typing-indicator');
         
         const messageRow = document.createElement('div');
-        messageRow.className = 'message-row';
+        messageRow.className = `message-row ${sender}-row`;
+        if (meta.queryId) {
+            messageRow.setAttribute('data-query-id', meta.queryId);
+        }
         
         if (sender === 'bot') {
             const botMessageContainer = document.createElement('div');
@@ -4127,6 +4968,9 @@ class EasyChatWidget {
             
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
+            
+            const messageLine = document.createElement('div');
+            messageLine.className = 'message-line bot-message-line';
             
             // Add AI avatar and name inside the message bubble - always show for bot messages
             const avatarHtml = this.generateAiAvatar();
@@ -4139,9 +4983,6 @@ class EasyChatWidget {
                 actionsDiv.className = 'message-actions';
                 actionsDiv.style.display = 'none'; // Hide initially
                 actionsDiv.innerHTML = `
-                    <button class="message-action-btn copy-btn" title="Copy to clipboard">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">
-                    </button>
                     <button class="message-action-btn like-btn" title="Helpful">
                         <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z'/%3E%3C/svg%3E" alt="Like">
                     </button>
@@ -4198,14 +5039,34 @@ class EasyChatWidget {
                 }
             }
 
-            botMessageContainer.appendChild(messageDiv);
+            // Add copy button on right side of bot message container (outside message box)
+            const copyButton = document.createElement('button');
+            copyButton.className = 'message-copy-btn bot-copy-btn';
+            copyButton.title = 'Copy to clipboard';
+            copyButton.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">`;
+            messageLine.appendChild(messageDiv);
+            messageLine.appendChild(copyButton);
+            botMessageContainer.appendChild(messageLine);
+            
             if (actionsDiv) {
                 botMessageContainer.appendChild(actionsDiv);
             }
+            
+            // Set query ID on container for Parlant spacing
+            const queryId = meta.queryId || (this.config.parlant.enabled && this.parlantCurrentQueryId ? this.parlantCurrentQueryId : null);
+            if (queryId) {
+                botMessageContainer.setAttribute('data-query-id', queryId);
+            }
+            
             messageRow.appendChild(botMessageContainer);
 
             // Setup action buttons only if they exist
+            // For Parlant: Only show on last response of each query
             if (this.config.showMessageActions) {
+                // Hide action buttons initially if Parlant is enabled
+                if (this.config.parlant.enabled && actionsDiv) {
+                    actionsDiv.style.display = 'none';
+                }
                 this.setupMessageActions(botMessageContainer, text);
             }
 
@@ -4214,21 +5075,41 @@ class EasyChatWidget {
 
             // Trigger word functionality removed - form now shows on chat open
         } else {
+            // Create container for user message with copy button
+            const userMessageContainer = document.createElement('div');
+            userMessageContainer.className = 'user-message-container';
+            
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
             messageDiv.textContent = text;
-            messageRow.appendChild(messageDiv);
+            
+            const messageLine = document.createElement('div');
+            messageLine.className = 'message-line user-message-line';
+            
+            // Add copy button on left side of user message container (outside message box)
+            const copyButton = document.createElement('button');
+            copyButton.className = 'message-copy-btn user-copy-btn';
+            copyButton.title = 'Copy to clipboard';
+            copyButton.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">`;
+            messageLine.appendChild(copyButton);
+            messageLine.appendChild(messageDiv);
+            userMessageContainer.appendChild(messageLine);
+            
+            messageRow.appendChild(userMessageContainer);
         }
 
         // Insert new messages before the spacer (so they appear above the empty space)
         const spacer = chatMessages.querySelector('.chat-spacer');
         chatMessages.insertBefore(messageRow, spacer);
         
-        // Only move typing indicator if it's currently active (visible)
+        // Keep typing indicator after the latest message so it remains visible
         const typingIndicatorElement = chatMessages.querySelector('.typing-indicator');
         if (typingIndicatorElement && spacer && typingIndicatorElement.classList.contains('active')) {
             chatMessages.insertBefore(typingIndicatorElement, spacer);
         }
+
+        // Setup copy buttons for the new message
+        this.setupCopyButtons(messageRow, text);
         
         // Only scroll to show new message if it's a user message
         if (sender === 'user') {
@@ -4236,6 +5117,62 @@ class EasyChatWidget {
         }
         
         this.updateLastBotMessage();
+    }
+
+    setupCopyButtons(messageRow, text) {
+        // Setup copy button for bot messages
+        const botCopyBtn = messageRow.querySelector('.bot-copy-btn');
+        if (botCopyBtn) {
+            botCopyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Try multiple ways to get the message text
+                let textToCopy = text;
+                const messageContent = messageRow.querySelector('.message-content');
+                if (messageContent) {
+                    textToCopy = messageContent.textContent || messageContent.innerText || text;
+                } else {
+                    // Fallback: try to get text from message div
+                    const messageDiv = messageRow.querySelector('.message');
+                    if (messageDiv) {
+                        textToCopy = messageDiv.textContent || messageDiv.innerText || text;
+                    }
+                }
+                // Clean up the text (remove extra whitespace)
+                textToCopy = textToCopy.trim();
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    botCopyBtn.classList.add('copied', 'active');
+                    botCopyBtn.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E" alt="✓">`;
+                    setTimeout(() => {
+                        botCopyBtn.classList.remove('copied', 'active');
+                        botCopyBtn.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">`;
+                    }, 2000);
+                });
+            });
+        }
+
+        // Setup copy button for user messages
+        const userCopyBtn = messageRow.querySelector('.user-copy-btn');
+        if (userCopyBtn) {
+            userCopyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Try multiple ways to get the message text
+                let textToCopy = text;
+                const messageContent = messageRow.querySelector('.user-message');
+                if (messageContent) {
+                    textToCopy = messageContent.textContent || messageContent.innerText || text;
+                }
+                // Clean up the text (remove extra whitespace)
+                textToCopy = textToCopy.trim();
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    userCopyBtn.classList.add('copied', 'active');
+                    userCopyBtn.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E" alt="✓">`;
+                    setTimeout(() => {
+                        userCopyBtn.classList.remove('copied', 'active');
+                        userCopyBtn.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">`;
+                    }, 2000);
+                });
+            });
+        }
     }
 
     setupMessageLinks(messageDiv) {
@@ -4329,7 +5266,115 @@ class EasyChatWidget {
                 this.storageManager.saveMessage(message, 'user');
             }
     
-                        // Make API call
+            // Check if Parlant is enabled - use Parlant endpoints instead of regular API
+            if (this.config.parlant.enabled && this.config.parlant.apiBaseUrl) {
+                // Use Parlant integration
+                try {
+                    // Generate unique query ID for this user query
+                    this.parlantCurrentQueryId = `query_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    this.parlantQueryResponses.set(this.parlantCurrentQueryId, []);
+                    
+                    // Reset state for new message
+                    this.parlantAgentReadyStatusReceived = false;
+                    if (this.parlantReadyStatusGracePeriodTimer) {
+                        clearTimeout(this.parlantReadyStatusGracePeriodTimer);
+                        this.parlantReadyStatusGracePeriodTimer = null;
+                    }
+                    
+                    // Reset processed messages for new conversation turn
+                    this.parlantProcessedMessageOffsets.clear();
+                    this.parlantWaitingForResponse = true;
+                    this.parlantIsFirstAgentMessageInSequence = true;
+                    this.parlantTypingIndicatorState = 'thinking';
+                    
+                    // Send user message via Parlant
+                    const sentEvent = await this.parlantSendUserMessage(message);
+                    
+                    // Show typing indicator after 1 second delay (Parlant-specific, like Parlant-ui)
+                    // Store timeout reference so we can cancel it if message arrives quickly
+                    this.parlantTypingIndicatorTimeout = setTimeout(() => {
+                        if (this.parlantWaitingForResponse && !this.parlantProcessedMessageOffsets.size) {
+                            const typingIndicator = this.widget?.querySelector('.typing-indicator');
+                            if (typingIndicator && !typingIndicator.classList.contains('active')) {
+                                typingIndicator.classList.add('active');
+                                this.updateParlantTypingIndicator('thinking');
+                                this.startJavaScriptTypingAnimation();
+                                const chatMessages = this.widget?.querySelector('.chat-messages');
+                                const spacer = chatMessages?.querySelector('.chat-spacer');
+                                if (chatMessages && spacer) {
+                                    chatMessages.insertBefore(typingIndicator, spacer);
+                                }
+                            }
+                        }
+                    }, 1000);
+                    
+                    // Start polling for agent response
+                    this.parlantStartPolling();
+                    
+                    // Poll immediately (don't wait for interval)
+                    await this.parlantPollForAgentResponse();
+                    // Poll again after a short delay to catch quick responses
+                    setTimeout(async () => {
+                        await this.parlantPollForAgentResponse();
+                    }, 500);
+                    
+                    // Track the last time we received a message/event
+                    window.lastParlantAgentMessageTime = Date.now();
+                    window.lastParlantAgentEventTime = Date.now();
+                    
+                    // Safety check: if no ready status received after 60 seconds, stop polling
+                    const safetyTimeout = setTimeout(() => {
+                        if (this.parlantWaitingForResponse) {
+                            this.parlantStopPolling();
+                            this.parlantWaitingForResponse = false;
+                            this.parlantAgentReadyStatusReceived = false;
+                            if (this.parlantReadyStatusGracePeriodTimer) {
+                                clearTimeout(this.parlantReadyStatusGracePeriodTimer);
+                            }
+                            // Only show error if we haven't received any messages
+                            if (this.parlantProcessedMessageOffsets.size === 0) {
+                                this.addMessage('Response timeout after 60 seconds. The agent may still be processing your message.', 'bot', false);
+                            }
+                            // Cancel delayed typing indicator if still pending
+                            if (this.parlantTypingIndicatorTimeout) {
+                                clearTimeout(this.parlantTypingIndicatorTimeout);
+                                this.parlantTypingIndicatorTimeout = null;
+                            }
+                            
+                            // Remove typing indicator on timeout (Parlant-specific)
+                            const typingIndicator = this.widget?.querySelector('.typing-indicator');
+                            if (typingIndicator && typingIndicator.classList.contains('active')) {
+                                typingIndicator.classList.remove('active');
+                                this.stopJavaScriptTypingAnimation();
+                            }
+                        }
+                    }, 60000);
+                    
+                    // Store timeout reference for cleanup
+                    window.currentParlantSafetyTimeout = safetyTimeout;
+                    
+                    // Re-enable input immediately so user can send another message
+                    // (polling will continue in background, typing indicator stays active)
+                    // Don't call enableSending() as it removes typing indicator
+                    // Instead, just enable input functionality
+                    this.isWaitingForResponse = false; // Allow sending new messages
+                    resetInputState();
+                    // Keep typing indicator active - it will be removed when messages arrive or polling stops
+                    
+                } catch (error) {
+                    this.parlantStopPolling();
+                    this.parlantWaitingForResponse = false;
+                    this.parlantAgentReadyStatusReceived = false;
+                    if (this.parlantReadyStatusGracePeriodTimer) {
+                        clearTimeout(this.parlantReadyStatusGracePeriodTimer);
+                    }
+                    this.addMessage(error.message || 'Failed to send message. Please check if the Parlant API server is running.', 'bot', false);
+                    enableSending();
+                    resetInputState();
+                    this.forceEnableInput();
+                }
+            } else {
+                // Regular API call (non-Parlant mode)
             const requestData = this.formatRequestData(message);
             const response = await this.makeApiCall(requestData);
 
@@ -4375,12 +5420,15 @@ class EasyChatWidget {
             // Add bot response
             this.addMessage(responseText, 'bot', true);
             this.storageManager.saveMessage(responseText, 'bot', isRegeneration);
+                
+                // Always enable sending and reset input for regular API
+                enableSending();
+                resetInputState();
+            }
     
         } catch (error) {
             console.error('API Error:', error);
             this.addMessage('Sorry, there was an error processing your request.', 'bot', false);
-        } finally {
-            // Always enable sending and reset input
             enableSending();
             resetInputState();
             // Force enable input functionality on error
@@ -4412,6 +5460,11 @@ class EasyChatWidget {
         const chatWindow = this.widget.querySelector('.chat-window');
         const chatToggle = this.widget.querySelector('.chat-toggle');
         const chatInput = this.widget.querySelector('.chat-input .chat-textarea');
+        
+        // Cleanup Parlant polling if enabled
+        if (this.config.parlant.enabled) {
+            this.parlantStopPolling();
+        }
         
 
         
@@ -6050,6 +7103,11 @@ class EasyChatWidget {
     }
 
     deleteBackendHistory() {
+        // Skip backend history deletion when Parlant is enabled
+        if (this.config.parlant.enabled) {
+            return Promise.resolve({ message: 'Parlant mode: backend history deletion skipped' });
+        }
+        
         const userId = this.userManager.currentUser;
         const domain = this.userManager.domain;
         
@@ -6111,27 +7169,11 @@ class EasyChatWidget {
             return;
         }
         
-        const copyBtn = container.querySelector('.copy-btn');
+        // Copy button removed - now handled by individual copy buttons on messages
         const likeBtn = container.querySelector('.like-btn');
         const dislikeBtn = container.querySelector('.dislike-btn');
         const regenerateBtn = container.querySelector('.regenerate-btn');
         const messageDiv = container.querySelector('.bot-message');
-
-        // Copy button with primary color styling
-        copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(messageDiv.textContent).then(() => {
-                copyBtn.classList.add('copied', 'active');
-                copyBtn.innerHTML = `
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E" alt="✓">
-                `;
-                setTimeout(() => {
-                    copyBtn.classList.remove('copied', 'active');
-                    copyBtn.innerHTML = `
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/%3E%3C/svg%3E" alt="Copy">
-                    `;
-                }, 2000);
-            });
-        });
 
         // Updated like button with toggle functionality
         likeBtn.addEventListener('click', () => {
@@ -6201,13 +7243,59 @@ class EasyChatWidget {
     }
 
     updateLastBotMessage() {
-        const botMessages = this.widget.querySelectorAll('.bot-message-container');
-        botMessages.forEach((container, index) => {
-            container.classList.remove('last');
-            if (index === botMessages.length - 1) {
-                container.classList.add('last');
+        if (this.config.parlant.enabled) {
+            // For Parlant: Show action buttons only on last response of each query
+            const botMessages = this.widget.querySelectorAll('.bot-message-container');
+            const queryGroups = new Map();
+            
+            botMessages.forEach((container, index) => {
+                container.classList.remove('last');
+                const actionsDiv = container.querySelector('.message-actions');
+                if (actionsDiv) {
+                    actionsDiv.style.display = 'none';
+                }
+                const messageRow = container.closest('.message-row');
+                const queryId = messageRow?.getAttribute('data-query-id');
+                
+                if (queryId) {
+                    if (!queryGroups.has(queryId)) {
+                        queryGroups.set(queryId, []);
+                    }
+                    queryGroups.get(queryId).push({ container, index });
+                }
+            });
+            
+            // Mark last message of each query as "last"
+            queryGroups.forEach((messages) => {
+                if (messages.length > 0) {
+                    const lastMessage = messages[messages.length - 1];
+                    lastMessage.container.classList.add('last');
+                    const actionsDiv = lastMessage.container.querySelector('.message-actions');
+                    if (actionsDiv) {
+                        actionsDiv.style.display = 'flex';
+                    }
+                }
+            });
+            
+            // Also mark the very last bot message as "last" if no query groups
+            if (queryGroups.size === 0 && botMessages.length > 0) {
+                const lastContainer = botMessages[botMessages.length - 1];
+                lastContainer.classList.add('last');
+                const actionsDiv = lastContainer.querySelector('.message-actions');
+                if (actionsDiv) {
+                    actionsDiv.style.display = 'flex';
+                }
             }
-        });
+        } else {
+            // Regular behavior: show on last bot message
+            const botMessages = this.widget.querySelectorAll('.bot-message-container');
+            botMessages.forEach((container, index) => {
+                container.classList.remove('last');
+                if (index === botMessages.length - 1) {
+                    container.classList.add('last');
+                }
+            });
+        }
     }
 
     // Hide greeting message action buttons when AI response comes
@@ -6290,6 +7378,13 @@ class EasyChatWidget {
 
     // Updated sendFeedback method
     async sendFeedback(type, response) {
+        // Skip feedback when Parlant is enabled
+        if (this.config.parlant.enabled) {
+            // Still save feedback state locally for UI purposes
+            this.saveFeedbackState(response, type);
+            return;
+        }
+        
         try {
             const feedback = {
                 type: type, // 'like', 'dislike', or 'remove'
@@ -7065,6 +8160,7 @@ class ChatUserManager {
         this.domain = this.getCurrentDomain();
         this.path = this.getCurrentPath();
         this.currentUser = this.generateUserId();
+        this.userSessionId = this.getOrCreateUserSessionId();
         this.initializeUser();
         
         // Add new property to track form submissions
@@ -7093,6 +8189,22 @@ class ChatUserManager {
             return newId;
         }
         return storedId;
+    }
+
+    getOrCreateUserSessionId() {
+        const sessionKey = this.config.separateSubpageHistory 
+            ? `userSessionId_${this.domain}${this.path}`
+            : `userSessionId_${this.domain}`;
+        
+        let sessionId = localStorage.getItem(sessionKey);
+        
+        if (!sessionId) {
+            // Generate unique session ID
+            sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            localStorage.setItem(sessionKey, sessionId);
+        }
+        
+        return sessionId;
     }
 
     getHistoryKey() {
@@ -7244,6 +8356,32 @@ class ChatStorageManager {
         localStorage.setItem(historyKey, JSON.stringify(chatHistory));
     }
 
+    saveParlantMessage(message, sender, queryId) {
+        const historyKey = this.userManager.getHistoryKey();
+        let chatHistory = this.getChatHistory();
+
+        const messageData = {
+            message: message,
+            sender: sender,
+            timestamp: new Date().toISOString(),
+            domain: this.domain,
+            queryId: queryId,
+            userSessionId: this.userManager.userSessionId
+        };
+
+        if (this.config.separateSubpageHistory) {
+            messageData.path = this.path;
+        }
+
+        chatHistory.push(messageData);
+
+        if (chatHistory.length > this.maxHistoryLength) {
+            chatHistory = chatHistory.slice(-this.maxHistoryLength);
+        }
+
+        localStorage.setItem(historyKey, JSON.stringify(chatHistory));
+    }
+
     loadChatHistory() {
         if (!this.widget) return;
 
@@ -7259,7 +8397,7 @@ class ChatStorageManager {
 
         const chatHistory = this.getChatHistory();
         chatHistory.forEach(item => {
-            this.widget.addMessage(item.message, item.sender, false);
+            this.widget.addMessage(item.message, item.sender, false, { queryId: item.queryId });
         });
     }
 
@@ -7280,6 +8418,20 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = EasyChatWidget;
 } else {
     window.EasyChatWidget = EasyChatWidget;
+}
+
+// Cleanup Parlant on page unload
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        // Find all EasyChatWidget instances and cleanup Parlant
+        if (window.chatWidgetInstances) {
+            window.chatWidgetInstances.forEach(widget => {
+                if (widget && typeof widget.cleanupParlant === 'function') {
+                    widget.cleanupParlant();
+                }
+            });
+        }
+    });
 }
 
 // Utility function for debouncing
