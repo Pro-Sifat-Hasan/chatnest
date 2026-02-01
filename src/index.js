@@ -145,6 +145,14 @@ class EasyChatWidget {
             });
         }
     }
+
+    formatTimestamp(timestamp) {
+        const date = timestamp ? new Date(timestamp) : new Date();
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
     
     generateAiAvatar() {
         if (!this.config.showAiAvatar) return '';
@@ -450,7 +458,7 @@ class EasyChatWidget {
             apiDataFormat: config.apiDataFormat || 'json', // 'json' or 'form-data'
             // Typing indicator configuration
             typingIndicatorColor: config.typingIndicatorColor || '#666', // Color for typing indicator dots
-            showTypingText: false, // Disable "AI is thinking..." text for cleaner look
+            showTypingText: config.showTypingText !== false, // Show "Thinking" text (default: true)
             
             // Toggle button customization
             toggleButtonIcon: config.toggleButtonIcon || null, // Custom icon for toggle button (emoji, image URL, or SVG)
@@ -980,6 +988,7 @@ class EasyChatWidget {
     // Update Parlant typing indicator text
     updateParlantTypingIndicator(state) {
         if (!this.config.parlant.enabled) return;
+        if (!this.config.showTypingText) return;
         
         const typingIndicator = this.widget?.querySelector('.typing-indicator');
         if (!typingIndicator) return;
@@ -3460,6 +3469,27 @@ class EasyChatWidget {
                 background: rgba(255, 255, 255, 0.2);
             }
 
+            .message-timestamp {
+                font-size: 11px;
+                color: #9aa0a6;
+                margin-top: 4px;
+                line-height: 1.2;
+            }
+
+            .bot-message-container .message-timestamp {
+                align-self: flex-start;
+                margin-left: 0.2rem;
+            }
+
+            .user-message-container .message-timestamp {
+                align-self: flex-end;
+                margin-right: 0.2rem;
+            }
+
+            .chat-widget.dark-theme .message-timestamp {
+                color: #94a3b8;
+            }
+
             .message-actions {
                 display: none;
                 gap: 4px;
@@ -4150,6 +4180,13 @@ class EasyChatWidget {
             .map(([key, value]) => `${key}: ${value};`)
             .join(' ');
         
+        const greetingTimestampHtml = this.config.showTimestamp
+            ? `<div class="message-timestamp bot-timestamp">${this.formatTimestamp()}</div>`
+            : '';
+        const typingIndicatorHtml = this.config.showTypingText
+            ? `<div class="typing-text">Thinking<div class="typing-spinner" aria-hidden="true"></div></div>`
+            : `<div class="typing-spinner" aria-hidden="true"></div>`;
+
         const chatWindowHtml = `
             <div class="chat-window" style="position: fixed; ${windowStyle}">
                 <div class="chat-header">
@@ -4178,10 +4215,11 @@ class EasyChatWidget {
                     <div class="message-row" id="greeting-row">
                         <div class="message bot-message greeting-message">
                             ${this.config.greeting}
+                            ${greetingTimestampHtml}
                         </div>
                     </div>
                     <div class="typing-indicator">
-                        <div class="typing-text">Thinking<div class="typing-spinner" aria-hidden="true"></div></div>
+                        ${typingIndicatorHtml}
                     </div>
                     <div class="chat-spacer"></div>
                 </div>
@@ -4955,6 +4993,7 @@ class EasyChatWidget {
     addMessage(text, sender, useTypewriter = true, meta = {}) {
         const chatMessages = this.widget.querySelector('.chat-messages');
         const typingIndicator = this.widget.querySelector('.typing-indicator');
+        const timestampText = this.config.showTimestamp ? this.formatTimestamp(meta.timestamp) : '';
         
         const messageRow = document.createElement('div');
         messageRow.className = `message-row ${sender}-row`;
@@ -5047,6 +5086,13 @@ class EasyChatWidget {
             messageLine.appendChild(messageDiv);
             messageLine.appendChild(copyButton);
             botMessageContainer.appendChild(messageLine);
+
+            if (this.config.showTimestamp && timestampText) {
+                const timestampDiv = document.createElement('div');
+                timestampDiv.className = 'message-timestamp bot-timestamp';
+                timestampDiv.textContent = timestampText;
+                botMessageContainer.appendChild(timestampDiv);
+            }
             
             if (actionsDiv) {
                 botMessageContainer.appendChild(actionsDiv);
@@ -5094,6 +5140,13 @@ class EasyChatWidget {
             messageLine.appendChild(copyButton);
             messageLine.appendChild(messageDiv);
             userMessageContainer.appendChild(messageLine);
+
+            if (this.config.showTimestamp && timestampText) {
+                const timestampDiv = document.createElement('div');
+                timestampDiv.className = 'message-timestamp user-timestamp';
+                timestampDiv.textContent = timestampText;
+                userMessageContainer.appendChild(timestampDiv);
+            }
             
             messageRow.appendChild(userMessageContainer);
         }
@@ -6267,6 +6320,10 @@ class EasyChatWidget {
             }
         });
 
+        if (!this.config.enableHistory) {
+            return;
+        }
+
         const chatHistory = this.storageManager.getChatHistory();
         
         // Filter out old regenerated responses
@@ -6290,12 +6347,17 @@ class EasyChatWidget {
 
         // Add filtered messages to UI
         filteredHistory.forEach(item => {
-            this.addMessage(item.message, item.sender, false);
+            this.addMessage(item.message, item.sender, false, { timestamp: item.timestamp });
         });
     }
 
     updateConfig(newConfig) {
         this.initConfig({ ...this.config, ...newConfig });
+        if (this.storageManager) {
+            this.storageManager.config = this.config;
+            this.storageManager.enableHistory = this.config.enableHistory !== false;
+            this.storageManager.maxHistoryLength = this.config.maxHistoryLength || 100;
+        }
         // Reload the widget with new config
         this.destroy();
         this.createWidget();
@@ -8214,6 +8276,9 @@ class ChatUserManager {
     }
 
     initializeUser() {
+        if (!this.config.enableHistory) {
+            return;
+        }
         const historyKey = this.getHistoryKey();
         if (!localStorage.getItem(historyKey)) {
             localStorage.setItem(historyKey, JSON.stringify([]));
@@ -8292,7 +8357,8 @@ class ChatStorageManager {
     constructor(userManager, config) {
         this.userManager = userManager;
         this.config = config;
-        this.maxHistoryLength = 100;
+        this.enableHistory = config.enableHistory !== false;
+        this.maxHistoryLength = config.maxHistoryLength || 100;
         this.widget = null;
         this.domain = userManager.domain;
         this.path = userManager.path;
@@ -8303,6 +8369,9 @@ class ChatStorageManager {
     }
 
     getChatHistory() {
+        if (!this.enableHistory) {
+            return [];
+        }
         const historyKey = this.userManager.getHistoryKey();
         const history = localStorage.getItem(historyKey);
         const parsedHistory = history ? JSON.parse(history) : [];
@@ -8322,6 +8391,9 @@ class ChatStorageManager {
     }
 
     saveMessage(message, sender, isRegenerated = false) {
+        if (!this.enableHistory) {
+            return;
+        }
         const historyKey = this.userManager.getHistoryKey();
         let chatHistory = this.getChatHistory();
         
@@ -8357,6 +8429,9 @@ class ChatStorageManager {
     }
 
     saveParlantMessage(message, sender, queryId) {
+        if (!this.enableHistory) {
+            return;
+        }
         const historyKey = this.userManager.getHistoryKey();
         let chatHistory = this.getChatHistory();
 
@@ -8383,7 +8458,7 @@ class ChatStorageManager {
     }
 
     loadChatHistory() {
-        if (!this.widget) return;
+        if (!this.widget || !this.enableHistory) return;
 
         const chatMessages = this.widget.widget.querySelector('.chat-messages');
         const messages = chatMessages.querySelectorAll('.message-row');
@@ -8397,11 +8472,14 @@ class ChatStorageManager {
 
         const chatHistory = this.getChatHistory();
         chatHistory.forEach(item => {
-            this.widget.addMessage(item.message, item.sender, false, { queryId: item.queryId });
+            this.widget.addMessage(item.message, item.sender, false, { queryId: item.queryId, timestamp: item.timestamp });
         });
     }
 
     clearHistory() {
+        if (!this.enableHistory) {
+            return;
+        }
         const historyKey = this.userManager.getHistoryKey();
         try {
             localStorage.removeItem(historyKey);
