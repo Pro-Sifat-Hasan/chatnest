@@ -5648,7 +5648,7 @@ class EasyChatWidget {
         };
         
         // Enhanced focus management for mobile
-        const focusInput = () => {
+        const focusInput = ({ forceEnd = true } = {}) => {
             
             setupInput();
             isInputFocused = true;
@@ -5670,7 +5670,7 @@ class EasyChatWidget {
                 
                 setTimeout(() => {
                     inputElement.focus();
-                    if (isInputFocused) {
+                    if (isInputFocused && forceEnd) {
                         inputElement.setSelectionRange(inputElement.value.length, inputElement.value.length);
                     }
                     document.body.removeChild(tempInput);
@@ -5678,10 +5678,10 @@ class EasyChatWidget {
             } else {
                 // Android and other mobile devices
                 setTimeout(() => {
-                    if (isInputFocused) {
+                    if (isInputFocused && forceEnd) {
                         inputElement.setSelectionRange(inputElement.value.length, inputElement.value.length);
-                }
-            }, 100);
+                    }
+                }, 100);
             }
         };
         
@@ -5721,26 +5721,23 @@ class EasyChatWidget {
         });
         
         // Enhanced click handler for better mobile touch response
-        inputElement.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            focusInput();
+        inputElement.addEventListener('click', () => {
+            if (!isInputFocused) {
+                focusInput({ forceEnd: false });
+            }
         });
         
         // Enhanced touch handlers for mobile
-        inputElement.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            focusInput();
+        inputElement.addEventListener('touchstart', () => {
+            if (!isInputFocused) {
+                focusInput({ forceEnd: false });
+            }
         });
         
-        inputElement.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            focusInput();
+        inputElement.addEventListener('touchend', () => {
+            if (!isInputFocused) {
+                focusInput({ forceEnd: false });
+            }
         });
         
         // Enhanced container click handler with larger touch area
@@ -5766,6 +5763,9 @@ class EasyChatWidget {
             const handleContainerInteraction = (e, type) => {
                 // Allow normal interaction with real controls inside the input row
                 if (e && e.target && e.target.closest && e.target.closest('.send-button, .file-button')) {
+                    return;
+                }
+                if (e && (e.target === inputElement || (e.target.closest && e.target.closest('.chat-textarea')))) {
                     return;
                 }
                 e.preventDefault();
