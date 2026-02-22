@@ -1,42 +1,33 @@
 {
-    "name": "chatnest",
-    "version": "3.4.0",
-    "description": "A lightweight, customizable, and responsive chat widget for modern web applications.",
-    "keywords": [
-        "chat",
-        "widget",
-        "chatbot",
-        "ai",
-        "assistant"
-    ],
-    "homepage": "https://github.com/Pro-Sifat-Hasan/chatnest#readme",
-    "bugs": {
-        "url": "https://github.com/Pro-Sifat-Hasan/chatnest/issues"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/Pro-Sifat-Hasan/chatnest.git"
-    },
-    "license": "MIT",
-    "author": "Sifat Hasan",
-    "type": "commonjs",
-    "main": "dist/chat-widget.min.js",
-    "scripts": {
-        "build": "webpack --mode production",
-        "dev": "webpack --mode development --watch",
-        "prepare": "npm run build"
-    },
-    "dependencies": {
-        "marked": "^9.1.6"
-    },
-    "devDependencies": {
-        "@babel/core": "^7.23.0",
-        "@babel/preset-env": "^7.22.20",
-        "babel-loader": "^9.1.3",
-        "css-loader": "^6.8.1",
-        "style-loader": "^3.3.3",
-        "terser-webpack-plugin": "^5.3.9",
-        "webpack": "^5.88.2",
-        "webpack-cli": "^5.1.4"
-    }
+  "name": "chatnest",
+  "version": "3.4.0",
+  "description": "A lightweight, customizable, and responsive chat widget for modern web applications.",
+  "keywords": ["chat", "widget", "chatbot", "ai", "assistant"],
+  "homepage": "https://github.com/Pro-Sifat-Hasan/chatnest#readme",
+  "bugs": {"url": "https://github.com/Pro-Sifat-Hasan/chatnest/issues"},
+  "repository": {"type": "git", "url": "git+https://github.com/Pro-Sifat-Hasan/chatnest.git"},
+  "license": "MIT",
+  "author": "Sifat Hasan",
+  "type": "commonjs",
+  "main": "dist/chatnest.min.js",
+  "unpkg": "dist/chatnest.min.js",
+  "jsdelivr": "dist/chatnest.min.js",
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "marked": "^9.1.6"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.22.20",
+    "babel-loader": "^9.1.3",
+    "css-loader": "^6.8.1",
+    "style-loader": "^3.3.3",
+    "terser-webpack-plugin": "^5.3.9",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  }
 }

@@ -27,6 +27,11 @@ Thumbs.db
 
 # Test files
 test.html
+demo.html
 
 # unnecessary files
 Parlant-ui/
+
+#  Agent skills
+skills-lock.json
+.cursor/

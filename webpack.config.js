@@ -5,10 +5,10 @@ module.exports = {
   entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'chat-widget.min.js',
-    library: 'EasyChatWidget',
+    filename: 'chatnest.min.js',
+    library: 'Chatnest',
     libraryTarget: 'umd',
-    globalObject: 'this'
+    globalObject: 'typeof self !== "undefined" ? self : this'
   },
   module: {
     rules: [
@@ -18,7 +18,7 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['@babel/preset-env']
+            presets: [['@babel/preset-env', { modules: 'commonjs' }]]
           }
         }
       },

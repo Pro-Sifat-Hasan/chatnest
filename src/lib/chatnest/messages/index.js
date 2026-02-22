@@ -1,0 +1,10 @@
+export { addMessage } from './addMessage.js';
+export { addGreetingMessage } from './addGreetingMessage.js';
+export { ensureGreetingMessageWithAvatar } from './ensureGreetingMessageWithAvatar.js';
+export { setupCopyButtons } from './setupCopyButtons.js';
+export { setupMessageLinks } from './setupMessageLinks.js';
+export { setupMessageActions } from './setupMessageActions.js';
+export { synchronizeGreetingWidth } from './synchronizeGreetingWidth.js';
+export { updateFilePreview } from './updateFilePreview.js';
+export { hideGreetingActions } from './hideGreetingActions.js';
+export { updateLastBotMessage } from './updateLastBotMessage.js';

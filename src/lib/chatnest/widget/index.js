@@ -1,0 +1,11 @@
+export { createWidget } from './createWidget.js';
+export { initializeWidget } from './initializeWidget.js';
+export { destroy } from './destroy.js';
+export { setupEraseButton } from './setupEraseButton.js';
+export { eraseChat } from './eraseChat.js';
+export { setupResponsiveHandling } from './setupResponsiveHandling.js';
+export { ensureSendButtonIconSize } from './ensureSendButtonIconSize.js';
+export { applyToggleButtonAnimation } from './applyToggleButtonAnimation.js';
+export { disableToggleButtonAnimation } from './disableToggleButtonAnimation.js';
+export { enableToggleButtonAnimation } from './enableToggleButtonAnimation.js';
+export { forceStyleReapplication } from './forceStyleReapplication.js';

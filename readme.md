@@ -36,10 +36,15 @@ ChatNest is a lightweight, customizable, and easy-to-integrate JavaScript widget
 
 ## Installation
 
-To include ChatNest in your project, add the following CDN link to your HTML file:
+To include ChatNest in your project, add the following CDN link to your HTML file (use the **full path** for reliable CDN loading):
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.0/dist/chatnest.min.js"></script>
+```
+
+Or use unpkg:
+```html
+<script src="https://unpkg.com/chatnest@3.4.0/dist/chatnest.min.js"></script>
 ```
 
 Alternatively, you can install it using npm:
@@ -49,11 +54,11 @@ npm install chatnest
 ```
 
 ## Usage
-Once ChatNest is included, you can initialize the chat widget by creating an instance of EasyChatWidget in your JavaScript code. For example:
+Once ChatNest is included, initialize the chat widget with `Chatnest` (or `EasyChatWidget` for backward compatibility):
 
 ```javascript
 document.addEventListener('DOMContentLoaded', () => {
-    const chatWidget = new EasyChatWidget({
+    const chatWidget = new Chatnest({
         botName: 'Support Bot',
         botImage: 'https://example.com/bot-image.png',
         greeting: 'Hi there! How can I assist you today?',
@@ -67,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ## Configuration Options
 
-Below are the available configuration options you can set when initializing EasyChatWidget.
+Below are the available configuration options you can set when initializing Chatnest.
 
 
 | **Option**               | **Type**            | **Default Value**                            | **Description**                                                                                       |
@@ -188,7 +193,7 @@ ChatNest now supports file uploads with the following capabilities:
 #### Basic Configuration Examples
 ```javascript
 // File upload with gradient text
-const chatWidget = new EasyChatWidget({
+const chatWidget = new Chatnest({
     enableFileUpload: true,
     showTextBox: true,
     textBoxTextColor: 'primary',
@@ -197,7 +202,7 @@ const chatWidget = new EasyChatWidget({
 });
 
 // Custom branding with gradient
-const chatWidget = new EasyChatWidget({
+const chatWidget = new Chatnest({
     showBranding: true,
     brandingText: 'Your Company',
     brandingUrl: 'https://yourcompany.com',
@@ -206,7 +211,7 @@ const chatWidget = new EasyChatWidget({
 });
 
 // Text box with perfect positioning
-const chatWidget = new EasyChatWidget({
+const chatWidget = new Chatnest({
     showTextBox: true,
     textBoxMessage: 'Need help? We\'re here!',
     textBoxSubMessage: '💬 24/7 Support',
@@ -220,7 +225,7 @@ const chatWidget = new EasyChatWidget({
 
 ```javascript
 document.addEventListener('DOMContentLoaded', () => {
-    const chatWidget = new EasyChatWidget({
+    const chatWidget = new Chatnest({
         // Basic configuration
         botName: 'Customer Support Bot',
         greeting: 'Welcome! How can we assist you?',
@@ -257,6 +262,13 @@ If you enable Markdown rendering (`enableMarkdown: true`), the widget will load 
 ![ChatNest](https://i.ibb.co.com/HPJ7WVL/Screenshot-2024-11-06-090205.png)
 
 ## Troubleshooting
+
+### CDN Not Working
+If the widget doesn't load when using the CDN:
+1. **Use the full path**: `https://cdn.jsdelivr.net/npm/chatnest@3.4.0/dist/chatnest.min.js` (not just the package root)
+2. **Load before your script**: Place the Chatnest script tag before your initialization code
+3. **Use DOMContentLoaded**: Wrap your initialization in `document.addEventListener('DOMContentLoaded', () => { ... })`
+4. **Check the console**: Look for CORS or script loading errors
 
 ### 422 Error (Unprocessable Entity)
 This usually occurs when the API expects different data format. Try:

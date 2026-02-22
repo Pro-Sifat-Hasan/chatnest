@@ -7,6 +7,7 @@ rollup.config.js
 # Documentation
 readme.md
 LICENSE
+demo.html
 
 # Development dependencies
 node_modules/
@@ -27,3 +28,7 @@ Thumbs.db
 # Build artifacts (keep only the final dist)
 *.map
 # Keep dist folder for npm publishing 
+
+#  Agent skills
+skills-lock.json
+.cursor/
