@@ -48,11 +48,14 @@ import Chatnest from 'chatnest';
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `botName` | `string` | `'Chat Assistant'` | Name shown in header |
+| `botName` | `string` | `'Chat Assistant'` | Name shown in the header |
 | `botImage` | `string` | default avatar | Bot avatar URL |
+| `botSubname` | `string` | `null` | Sub-label below the bot name |
+| `showBotSubname` | `boolean` | `true` | Show/hide `botSubname` |
 | `greeting` | `string` | `'Hello! How can I help you today?'` | Opening message |
-| `placeholder` | `string` | `'Type your message here...'` | Input placeholder |
-| `primaryColor` | `string` | `'#0084ff'` | Accent color (hex or CSS gradient) |
+| `placeholder` | `string` | `'Type your message here...'` | Input placeholder text |
+| `primaryColor` | `string` | `'#0084ff'` | Accent color — hex or CSS gradient |
+| `fontSize` | `number\|string` | `14` | Message font size in px (14–25) |
 | `width` | `string` | `'400px'` | Widget width (300–600px) |
 | `height` | `string` | `'600px'` | Widget height (400–800px) |
 | `position` | `string` | `'bottom-right'` | `bottom-right` `bottom-left` `bottom-center` `top-right` `top-left` |
@@ -62,56 +65,140 @@ import Chatnest from 'chatnest';
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `apiEndpoint` | `string` | `'http://localhost:7000/chat'` | Chat endpoint |
-| `apiKey` | `string` | `''` | Bearer token |
-| `apiHeaders` | `object` | `{ 'Content-Type': 'application/json' }` | Custom headers |
+| `apiEndpoint` | `string` | `'http://localhost:7000/chat'` | Chat endpoint URL |
+| `apiKey` | `string` | `''` | Bearer token added to `Authorization` header |
+| `apiHeaders` | `object` | `{ 'Content-Type': 'application/json' }` | Extra request headers |
 | `apiMethod` | `string` | `'POST'` | HTTP method |
-| `apiTimeout` | `number` | `30000` | Timeout in ms |
-| `apiRequestFormat` | `object` | `{ query, userId, domain }` | Request field names |
-| `apiResponseFormat` | `object` | `{ response, products }` | Response field names |
-| `transformResponse` | `function` | `null` | Transform response before display |
+| `apiTimeout` | `number` | `30000` | Request timeout in ms |
+| `apiRequestFormat` | `object` | `{ query, userId, domain }` | Map request field names to what your API expects |
+| `apiResponseFormat` | `object` | `{ response, products, productItem }` | Map response field names from your API |
+| `apiDataFormat` | `string` | `'json'` | `'json'` or `'form-data'` |
+| `useMultipartFormData` | `boolean` | `true` | Use multipart encoding for file uploads |
+| `transformResponse` | `function` | `null` | Transform the raw API response before display |
+| `productInjectionMarker` | `string\|array` | see below | Text marker(s) after which the product carousel is inserted |
 
 ### Chat Behavior
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enableHistory` | `boolean` | `true` | Persist chat in localStorage |
-| `maxHistoryLength` | `number` | `100` | Max stored messages |
-| `enableMarkdown` | `boolean` | `true` | Render Markdown |
-| `enableTypewriter` | `boolean` | `true` | Typewriter effect |
-| `enableTypingIndicator` | `boolean` | `true` | Show "Thinking…" |
-| `chips` | `array` | `[]` | Suggestion chips |
-| `enableFileUpload` | `boolean` | `true` | File/image attachments |
-| `fileAccept` | `string` | `'image/*,.pdf,.doc,.docx,.txt'` | Accepted file types |
-| `maxFiles` | `number` | `null` | Max files per message |
+| `maxHistoryLength` | `number` | `100` | Max messages stored locally |
+| `separateSubpageHistory` | `boolean` | `false` | Separate history per URL path |
+| `enableMarkdown` | `boolean` | `true` | Render Markdown in bot replies |
+| `enableTypewriter` | `boolean` | `true` | Typewriter animation for bot replies |
+| `typewriterSpeed` | `object` | `{ min: 30, max: 70 }` | Typewriter speed range in ms per character |
+| `typewritewithscroll` | `boolean` | `false` | Auto-scroll while typewriter is animating |
+| `enableTypingIndicator` | `boolean` | `true` | Show "Thinking…" while waiting |
+| `showTypingText` | `boolean` | `true` | Show text label next to typing dots |
+| `typingIndicatorColor` | `string` | `'#666'` | Color of the typing dots |
+| `showTimestamp` | `boolean` | `false` | Show time on each message |
+| `chips` | `array` | `[]` | Suggestion chip buttons, e.g. `['Help', 'Pricing']` |
+
+### File Upload
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enableFileUpload` | `boolean` | `true` | Enable file / image attachments |
+| `fileAccept` | `string` | `'image/*,.pdf,.doc,.docx,.txt'` | Accepted MIME types or extensions |
+| `maxFiles` | `number` | `null` | Max files per message (`null` = unlimited) |
+| `enableEnhancedMobileInput` | `boolean` | `true` | Optimised input handling on mobile |
+
+### Backend History
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enableBackendHistory` | `boolean` | `true` | Send conversation history to the API |
+| `backendHistoryEndpoint` | `string` | `''` | Separate endpoint to fetch server-side history |
+| `deleteEndpoint` | `string` | `{apiEndpoint}/delete-history` | Endpoint called when the user clears chat |
+| `feedbackEndpoint` | `string` | `{apiEndpoint}/feedback` | Endpoint for like/dislike feedback |
+| `enableServerHistoryDelete` | `boolean` | `false` | Call `deleteEndpoint` when erasing chat |
 
 ### UI & Branding
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `showBranding` | `boolean` | `true` | "Powered by" footer |
-| `brandingText` | `string` | `'Powered by NeuroBrain'` | Brand label |
-| `brandingUrl` | `string` | `'https://neurobrains.co/'` | Brand link |
-| `showMessageActions` | `boolean` | `true` | Like / dislike / copy / regenerate |
-| `enableDeleteButton` | `boolean` | `true` | Clear chat button |
+| `showBranding` | `boolean` | `true` | "Powered by" footer link |
+| `brandingText` | `string` | `'Powered by NeuroBrain'` | Footer brand label |
+| `brandingUrl` | `string` | `'https://neurobrains.co/'` | Footer brand URL |
+| `showMessageActions` | `boolean` | `true` | Like / dislike / copy / regenerate buttons |
+| `enableDeleteButton` | `boolean` | `true` | Show clear-chat button in header |
+| `aiAvatar` | `string` | `null` | URL, emoji, or inline SVG for the AI avatar |
+| `showAiAvatar` | `boolean` | `true` | Show/hide the AI avatar next to messages |
+| `chatBackgroundColor` | `string` | `'#ffffff'` | Chat panel background color |
+| `chatBackgroundImage` | `string` | `null` | CSS background-image for the chat panel |
+| `sendButtonIconSize` | `number` | `24` | Send button icon size in px |
+
+### Toggle Button
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `toggleButtonIcon` | `string` | default chat icon | URL, emoji, or SVG for the toggle button |
+| `toggleButtonSize` | `number` | `60` | Toggle button diameter in px (40–80) |
+| `toggleButtonAnimation` | `number` | `4` | Animation style 0–5 (`0` = none) |
+| `toggleButtonBottomMargin` | `number` | `50` | Distance from the bottom of the viewport in px |
+| `toggleButtonRightMargin` | `number` | `30` | Distance from the right edge of the viewport in px |
+| `websiteBottomSpacing` | `number` | `0` | Extra bottom spacing to avoid overlapping site elements |
+
+### Text Box Pop-up
+
+The small speech-bubble pop-up that appears above the toggle button before the chat is opened.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `showTextBox` | `boolean` | `true` | Show the pop-up text box |
+| `textBoxMessage` | `string` | `'Hi there! If you need any assistance, I am always here.'` | Main message |
+| `textBoxSubMessage` | `string` | `'24/7 Live Chat Support'` | Sub-message |
+| `showTextBoxCloseButton` | `boolean` | `true` | Allow user to dismiss the pop-up |
+| `textBoxTextColor` | `string` | `'primary'` | `'primary'` (uses `primaryColor`), `'default'`, or any hex |
+| `textBoxSpacingFromToggle` | `number` | `0` | Gap between the pop-up and toggle button in px |
+
+### HubSpot Lead Form
+
+Displays a lead-capture form before or during chat. Requires HubSpot portal credentials.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `hubspot.enabled` | `boolean` | `false` | Enable HubSpot form integration |
+| `hubspot.portalId` | `string` | `''` | HubSpot portal ID |
+| `hubspot.formGuid` | `string` | `''` | HubSpot form GUID |
+| `hubspot.triggerKeywords` | `array` | `['pricing','demo','contact','quote','help','support']` | Keywords that trigger the form |
+| `showFormOnStart` | `boolean` | `true` | Show form when chat opens for new users |
+| `useEmailAsUserId` | `boolean` | `true` | Use submitted email as the persistent user ID |
+| `formTitle` | `string` | `'Give Your Details'` | Form modal title |
+| `formSubtitle` | `string` | `'Please provide your information to start chatting.'` | Form modal subtitle |
+
+### Supabase Chat History
+
+Persist chat history in Supabase so sessions survive across devices and browsers.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `supabase.enabled` | `boolean` | `false` | Enable Supabase persistence |
+| `supabase.url` | `string` | `''` | Supabase project URL |
+| `supabase.anonKey` | `string` | `''` | Supabase anon/public API key |
+| `supabase.tableName` | `string` | `'chat_history'` | Table to store messages |
+| `supabase.historyLimit` | `number` | `50` | Max rows to load on widget open |
+
+### Parlant Integration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `parlant.enabled` | `boolean` | `false` | Enable Parlant agent integration |
+| `parlant.apiBaseUrl` | `string` | `''` | Parlant API base URL |
 
 ### Callbacks
 
-| Option | Description |
-|--------|-------------|
-| `onInit` | Called when widget is ready |
-| `onMessage` | Called on every send / receive |
-| `onError` | Called on API errors |
+| Option | Type | Description |
+|--------|------|-------------|
+| `onInit` | `function` | Called when the widget is ready |
+| `onMessage` | `function` | Called on every message send / receive |
+| `onError` | `function` | Called on API errors |
 
 ---
 
-## Supabase Chat History
-
-ChatNest can persist chat history to Supabase, enabling cross-device, cross-session history — even if the user is offline for months.
+## Supabase Setup
 
 ### 1. Create the table
-
-Run this in your Supabase SQL editor:
 
 ```sql
 CREATE TABLE IF NOT EXISTS chat_history (
@@ -130,31 +217,22 @@ ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "chat_history_open" ON chat_history FOR ALL USING (true) WITH CHECK (true);
 ```
 
-### 2. Add Supabase config
+### 2. Configure
 
 ```js
 new Chatnest({
-  botName: 'Support Bot',
   apiEndpoint: 'https://your-api.com/chat',
-
   supabase: {
     enabled:      true,
     url:          'https://xxxxxxxxxxxx.supabase.co',
     anonKey:      'your-anon-key',
-    tableName:    'chat_history',   // optional, this is the default
-    historyLimit: 50                // optional, messages to load on open
+    tableName:    'chat_history',  // optional
+    historyLimit: 50               // optional
   }
 });
 ```
 
-> Find your `url` and `anonKey` in **Supabase → Project Settings → API**.
-
-### How it works
-
-- Every user message + bot reply is saved as one row (`query` + `response`)
-- When the widget opens, history is fetched from Supabase and rendered in order
-- Falls back to localStorage if Supabase is not configured or unreachable
-- Works across devices — the server is the source of truth, not the browser
+> Find `url` and `anonKey` in **Supabase → Project Settings → API**.
 
 ---
 
@@ -181,18 +259,12 @@ new Chatnest({
 });
 ```
 
-Your API should return:
+Expected API response shape:
 ```json
 {
   "response": "Here are some recommendations:\n\n",
   "products": [
-    {
-      "name": "Product A",
-      "price": "$29",
-      "image_url": "https://...",
-      "buy_link": "https://...",
-      "highlights": "Lightweight, Fast"
-    }
+    { "name": "Product A", "price": "$29", "image_url": "...", "buy_link": "...", "highlights": "Lightweight" }
   ]
 }
 ```
@@ -203,16 +275,16 @@ Your API should return:
 
 ```js
 new Chatnest({
-  apiEndpoint:        'https://your-api.com/chat',
-  enableFileUpload:   true,
+  apiEndpoint:          'https://your-api.com/chat',
+  enableFileUpload:     true,
   useMultipartFormData: true,
-  apiDataFormat:      'form-data',
-  fileAccept:         'image/*',
-  maxFiles:           1
+  apiDataFormat:        'form-data',
+  fileAccept:           'image/*',
+  maxFiles:             1
 });
 ```
 
-Files are sent as multipart form data. Single file → `image` field. Multiple files → `file_0`, `file_1`, etc.
+Single file → sent as `image` field. Multiple files → `file_0`, `file_1`, etc.
 
 ---
 
@@ -222,7 +294,7 @@ Files are sent as multipart form data. Single file → `image` field. Multiple f
 Wrap init in `DOMContentLoaded`. Load the script before your init code.
 
 **422 error from API**  
-Your API expects different field names. Set `apiRequestFormat` to match:
+Your API expects different field names:
 ```js
 apiRequestFormat: { query: 'message', userId: 'user_id', domain: 'domain' }
 ```
@@ -231,9 +303,9 @@ apiRequestFormat: { query: 'message', userId: 'user_id', domain: 'domain' }
 Ensure your API returns a `products` array and `productInjectionMarker` matches text in the `response` field.
 
 **Supabase history not loading**  
-- Confirm `enabled: true` and credentials are correct
-- Check RLS policies allow reads with the anon key
-- Open browser console for `[Supabase]` error messages
+- Confirm `supabase.enabled: true` and credentials are correct  
+- Check RLS policies allow reads with the anon key  
+- Check browser console for `[Supabase]` error messages
 
 ---
 
