@@ -4,33 +4,24 @@
   <img src="https://i.ibb.co.com/ts1T0q7/chatnest.jpg" alt="ChatNest" width="400">
 </p>
 
-**ChatNest** is a lightweight, customizable chat widget for modern web applications. Add AI-powered chat to any website in minutes with flexible configuration, file uploads, product carousels, and full API customization.
+A lightweight, customizable AI chat widget. Drop it into any website in minutes.
 
 ---
 
-## Table of Contents
+## Installation
 
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Product Carousel & API Response](#product-carousel--api-response)
-- [File Upload](#file-upload)
-- [Examples](#examples)
-- [Troubleshooting](#troubleshooting)
+**CDN**
+```html
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.0/dist/chatnest.min.js"></script>
+```
 
----
-
-## Features
-
-- **Modern UI** — Clean, responsive design with Plus Jakarta Sans typography
-- **File & Image Upload** — Attach images and files; preview before sending; images persist in chat history
-- **Product Carousel** — Display product recommendations from your API with cards, prev/next navigation, and "Buy product" buttons
-- **Customizable API** — Map response fields, product structure, and injection markers to match any API
-- **Chat History** — LocalStorage persistence with image support across page reloads
-- **Markdown & Typewriter** — Rich text responses with optional typewriter effect
-- **Mobile-First** — Touch-optimized, fullscreen on mobile
-- **LangChain & RAG Ready** — Works with LangChain, RAG, or any REST API
+**npm**
+```bash
+npm install chatnest
+```
+```js
+import Chatnest from 'chatnest';
+```
 
 ---
 
@@ -42,9 +33,8 @@
   document.addEventListener('DOMContentLoaded', () => {
     new Chatnest({
       botName: 'Support Bot',
-      greeting: 'Hi! How can I help you today?',
       apiEndpoint: 'https://your-api.com/chat',
-      primaryColor: '#1a73e8'
+      primaryColor: '#0084ff'
     });
   });
 </script>
@@ -52,72 +42,34 @@
 
 ---
 
-## Installation
-
-### CDN
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.0/dist/chatnest.min.js"></script>
-```
-
-Or unpkg:
-
-```html
-<script src="https://unpkg.com/chatnest@3.4.0/dist/chatnest.min.js"></script>
-```
-
-### npm
-
-```bash
-npm install chatnest
-```
-
-```javascript
-import Chatnest from 'chatnest';
-// or
-const Chatnest = require('chatnest');
-```
-
----
-
 ## Configuration
 
-### Core Options
+### Core
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `botName` | `string` | `'Chat Assistant'` | Bot name in header |
+| `botName` | `string` | `'Chat Assistant'` | Name shown in header |
 | `botImage` | `string` | default avatar | Bot avatar URL |
-| `greeting` | `string` | `'Hello! How can I help you today?'` | Initial greeting |
+| `greeting` | `string` | `'Hello! How can I help you today?'` | Opening message |
 | `placeholder` | `string` | `'Type your message here...'` | Input placeholder |
-| `primaryColor` | `string` | `'#0084ff'` | Primary color (hex or gradient) |
-| `width` | `string` | `'400px'` | Chat width (300–600px) |
-| `height` | `string` | `'600px'` | Chat height (400–800px) |
-| `apiEndpoint` | `string` | `'http://localhost:7000/chat'` | Chat API URL |
-| `position` | `string` | `'bottom-right'` | Widget position: `bottom-right`, `bottom-left`, `bottom-center`, `top`, `left`, `right`, `top-right`, `top-left` |
+| `primaryColor` | `string` | `'#0084ff'` | Accent color (hex or CSS gradient) |
+| `width` | `string` | `'400px'` | Widget width (300–600px) |
+| `height` | `string` | `'600px'` | Widget height (400–800px) |
+| `position` | `string` | `'bottom-right'` | `bottom-right` `bottom-left` `bottom-center` `top-right` `top-left` |
+| `theme` | `string` | `'light'` | `'light'` `'dark'` `'system'` |
 
-### API & Request Format
+### API
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `apiKey` | `string` | `''` | Bearer token for API auth |
-| `apiHeaders` | `object` | `{ 'Content-Type': 'application/json' }` | Request headers |
+| `apiEndpoint` | `string` | `'http://localhost:7000/chat'` | Chat endpoint |
+| `apiKey` | `string` | `''` | Bearer token |
+| `apiHeaders` | `object` | `{ 'Content-Type': 'application/json' }` | Custom headers |
 | `apiMethod` | `string` | `'POST'` | HTTP method |
-| `apiTimeout` | `number` | `30000` | Request timeout (ms) |
-| `apiRequestFormat` | `object` | `{ query: 'query', userId: 'userId', domain: 'domain' }` | Request field mapping |
-| `apiResponseFormat` | `object` | See below | Response & product mapping |
-| `useMultipartFormData` | `boolean` | `true` | Use multipart for file uploads |
-| `apiDataFormat` | `string` | `'json'` | `'json'` or `'form-data'` |
-| `transformRequest` | `function` | `null` | Transform request before send |
+| `apiTimeout` | `number` | `30000` | Timeout in ms |
+| `apiRequestFormat` | `object` | `{ query, userId, domain }` | Request field names |
+| `apiResponseFormat` | `object` | `{ response, products }` | Response field names |
 | `transformResponse` | `function` | `null` | Transform response before display |
-
-### File Upload
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enableFileUpload` | `boolean` | `true` | Enable file attachment |
-| `fileAccept` | `string` | `'image/*,.pdf,.doc,.docx,.txt'` | Accepted file types |
-| `maxFiles` | `number` | `null` | Max files (e.g. `1` for single image) |
 
 ### Chat Behavior
 
@@ -125,97 +77,123 @@ const Chatnest = require('chatnest');
 |--------|------|---------|-------------|
 | `enableHistory` | `boolean` | `true` | Persist chat in localStorage |
 | `maxHistoryLength` | `number` | `100` | Max stored messages |
-| `enableMarkdown` | `boolean` | `true` | Render Markdown (requires Marked.js) |
-| `enableTypewriter` | `boolean` | `true` | Typewriter effect for bot replies |
-| `enableTypingIndicator` | `boolean` | `true` | Show "Thinking..." |
-| `chips` | `array` | `[]` | Suggestion chips (e.g. `['Help', 'Pricing']`) |
+| `enableMarkdown` | `boolean` | `true` | Render Markdown |
+| `enableTypewriter` | `boolean` | `true` | Typewriter effect |
+| `enableTypingIndicator` | `boolean` | `true` | Show "Thinking…" |
+| `chips` | `array` | `[]` | Suggestion chips |
+| `enableFileUpload` | `boolean` | `true` | File/image attachments |
+| `fileAccept` | `string` | `'image/*,.pdf,.doc,.docx,.txt'` | Accepted file types |
+| `maxFiles` | `number` | `null` | Max files per message |
 
 ### UI & Branding
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `showBranding` | `boolean` | `true` | Show "Powered by" footer |
-| `brandingText` | `string` | `'Powered by NeuroBrain'` | Brand name |
+| `showBranding` | `boolean` | `true` | "Powered by" footer |
+| `brandingText` | `string` | `'Powered by NeuroBrain'` | Brand label |
 | `brandingUrl` | `string` | `'https://neurobrains.co/'` | Brand link |
-| `showMessageActions` | `boolean` | `true` | Like, dislike, copy, regenerate |
-| `showDeleteButton` | `boolean` | `true` | Clear chat button |
-| `theme` | `string` | `'light'` | `'light'` or `'dark'` |
+| `showMessageActions` | `boolean` | `true` | Like / dislike / copy / regenerate |
+| `enableDeleteButton` | `boolean` | `true` | Clear chat button |
 
 ### Callbacks
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `onInit` | `function` | Called when widget is ready |
-| `onMessage` | `function` | Called on send/receive |
-| `onError` | `function` | Called on errors |
+| Option | Description |
+|--------|-------------|
+| `onInit` | Called when widget is ready |
+| `onMessage` | Called on every send / receive |
+| `onError` | Called on API errors |
 
 ---
 
-## Product Carousel & API Response
+## Supabase Chat History
 
-When your API returns a `products` array, ChatNest renders a carousel with product cards (image, name, highlights, price, Buy button).
+ChatNest can persist chat history to Supabase, enabling cross-device, cross-session history — even if the user is offline for months.
 
-### API Response Format
+### 1. Create the table
 
-```javascript
-apiResponseFormat: {
-  response: 'response',   // Key for main text
-  products: 'products',   // Key for products array
-  productItem: {
-    name: 'name',
-    price: 'price',
-    image: 'image_url',
-    link: 'buy_link',
-    highlights: 'highlights',
-    ctaText: 'Buy product'
+Run this in your Supabase SQL editor:
+
+```sql
+CREATE TABLE IF NOT EXISTS chat_history (
+  id        BIGSERIAL PRIMARY KEY,
+  user_id   TEXT NOT NULL,
+  domain    TEXT NOT NULL,
+  query     TEXT NOT NULL,
+  response  TEXT NOT NULL,
+  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_history_user_domain ON chat_history (user_id, domain);
+CREATE INDEX IF NOT EXISTS idx_chat_history_timestamp   ON chat_history (timestamp DESC);
+
+ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "chat_history_open" ON chat_history FOR ALL USING (true) WITH CHECK (true);
+```
+
+### 2. Add Supabase config
+
+```js
+new Chatnest({
+  botName: 'Support Bot',
+  apiEndpoint: 'https://your-api.com/chat',
+
+  supabase: {
+    enabled:      true,
+    url:          'https://xxxxxxxxxxxx.supabase.co',
+    anonKey:      'your-anon-key',
+    tableName:    'chat_history',   // optional, this is the default
+    historyLimit: 50                // optional, messages to load on open
   }
-}
+});
 ```
 
-### Product Injection Marker
+> Find your `url` and `anonKey` in **Supabase → Project Settings → API**.
 
-Products are inserted after a configurable text marker:
+### How it works
 
-```javascript
-productInjectionMarker: 'Here are some product recommendations that might be beneficial for your skin condition:'
-// or array of possible markers:
-productInjectionMarker: ['Marker 1...', 'Marker 2...']
+- Every user message + bot reply is saved as one row (`query` + `response`)
+- When the widget opens, history is fetched from Supabase and rendered in order
+- Falls back to localStorage if Supabase is not configured or unreachable
+- Works across devices — the server is the source of truth, not the browser
+
+---
+
+## Product Carousel
+
+When your API returns a `products` array, ChatNest renders product cards with image, name, price, highlights, and a CTA button.
+
+```js
+new Chatnest({
+  apiEndpoint: 'https://your-api.com/chat',
+  productInjectionMarker: 'Here are some recommendations:',
+  apiResponseFormat: {
+    response: 'response',
+    products: 'products',
+    productItem: {
+      name:       'name',
+      price:      'price',
+      image:      'image_url',
+      link:       'buy_link',
+      highlights: 'highlights',
+      ctaText:    'Buy now'
+    }
+  }
+});
 ```
 
-### Example API Response (Klyra-style)
-
+Your API should return:
 ```json
 {
-  "response": "Here are some tips...\n\nHere are some product recommendations that might be beneficial for your skin condition:\n\n\n\n",
+  "response": "Here are some recommendations:\n\n",
   "products": [
     {
-      "id": "1",
-      "name": "Product Name",
-      "highlights": "Lightweight, Hydrating",
-      "price": "995TK",
+      "name": "Product A",
+      "price": "$29",
       "image_url": "https://...",
-      "buy_link": "https://..."
+      "buy_link": "https://...",
+      "highlights": "Lightweight, Fast"
     }
   ]
-}
-```
-
-### Custom API Shape
-
-For different field names:
-
-```javascript
-apiResponseFormat: {
-  response: 'message',
-  products: 'recommendations',
-  productItem: {
-    name: 'title',
-    price: 'cost',
-    image: 'thumbnail',
-    link: 'url',
-    highlights: 'tags',
-    ctaText: 'Add to cart'
-  }
 }
 ```
 
@@ -223,127 +201,39 @@ apiResponseFormat: {
 
 ## File Upload
 
-### Single Image (e.g. skincare analysis)
-
-```javascript
+```js
 new Chatnest({
-  apiEndpoint: 'https://your-api.com/chat',
+  apiEndpoint:        'https://your-api.com/chat',
+  enableFileUpload:   true,
   useMultipartFormData: true,
-  apiDataFormat: 'form-data',
-  fileAccept: 'image/*',
-  maxFiles: 1
+  apiDataFormat:      'form-data',
+  fileAccept:         'image/*',
+  maxFiles:           1
 });
 ```
 
-### Multiple Files
-
-```javascript
-new Chatnest({
-  enableFileUpload: true,
-  fileAccept: 'image/*,.pdf,.doc,.docx,.txt'
-  // maxFiles: null (default) = multiple
-});
-```
-
-- **Image preview** before sending
-- **Image persistence** in chat history (base64 in localStorage)
-- **Multipart form** sends files as `image` (single) or `file_0`, `file_1` (multiple)
-
----
-
-## Examples
-
-### E-commerce with Products
-
-```javascript
-new Chatnest({
-  botName: 'Product Assistant',
-  apiEndpoint: 'https://your-api.com/chat',
-  productInjectionMarker: 'Here are some products that might help:',
-  apiResponseFormat: {
-    response: 'response',
-    products: 'products',
-    productItem: {
-      name: 'name',
-      price: 'price',
-      image: 'image_url',
-      link: 'buy_link',
-      highlights: 'highlights',
-      ctaText: 'Buy product'
-    }
-  }
-});
-```
-
-### Image Upload + Products
-
-```javascript
-new Chatnest({
-  botName: 'Support Bot',
-  apiEndpoint: 'https://klyra-api.example.com/chat',
-  useMultipartFormData: true,
-  apiDataFormat: 'form-data',
-  fileAccept: 'image/*',
-  maxFiles: 1,
-  productInjectionMarker: 'Here are some product recommendations that might be beneficial for your skin condition:',
-  apiResponseFormat: {
-    response: 'response',
-    products: 'products',
-    productItem: { name: 'name', price: 'price', image: 'image_url', link: 'buy_link', highlights: 'highlights' }
-  }
-});
-```
-
-### Minimal Setup
-
-```javascript
-new Chatnest({
-  botName: 'Help Bot',
-  greeting: 'Ask me anything!',
-  apiEndpoint: 'https://your-api.com/chat'
-});
-```
+Files are sent as multipart form data. Single file → `image` field. Multiple files → `file_0`, `file_1`, etc.
 
 ---
 
 ## Troubleshooting
 
-### CDN Not Loading
+**Widget not loading**  
+Wrap init in `DOMContentLoaded`. Load the script before your init code.
 
-- Use full path: `https://cdn.jsdelivr.net/npm/chatnest@3.4.0/dist/chatnest.min.js`
-- Load script before your init code
-- Wrap init in `DOMContentLoaded`
-
-### 422 Error
-
-API expects different format. Try:
-
-```javascript
-{
-  useMultipartFormData: true,
-  apiDataFormat: 'form-data',
-  apiRequestFormat: { query: 'message', userId: 'user_id', domain: 'domain' }
-}
+**422 error from API**  
+Your API expects different field names. Set `apiRequestFormat` to match:
+```js
+apiRequestFormat: { query: 'message', userId: 'user_id', domain: 'domain' }
 ```
 
-### File Upload Not Working
+**Products not showing**  
+Ensure your API returns a `products` array and `productInjectionMarker` matches text in the `response` field.
 
-1. `enableFileUpload: true`
-2. `useMultipartFormData: true`
-3. `apiDataFormat: 'form-data'` for multipart
-4. Check server file size limits
-
-### Products Not Showing
-
-1. Ensure API returns `products` array (or your custom key via `apiResponseFormat.products`)
-2. Set `productInjectionMarker` to match text in your `response`
-3. Check `productItem` mapping matches your API fields
-
----
-
-## Dependencies
-
-- **Marked.js** — Loaded from CDN when `enableMarkdown: true` (default)
+**Supabase history not loading**  
+- Confirm `enabled: true` and credentials are correct
+- Check RLS policies allow reads with the anon key
+- Open browser console for `[Supabase]` error messages
 
 ---
 
