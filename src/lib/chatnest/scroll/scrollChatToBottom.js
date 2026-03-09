@@ -12,15 +12,7 @@ export function scrollChatToBottom(chatnest) {
 
     if (isNearBottom) {
         requestAnimationFrame(() => {
-            chatMessages.scrollTo({
-                top: chatMessages.scrollHeight,
-                behavior: 'smooth'
-            });
+            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
         });
-
-        if (typeof event !== 'undefined') {
-            event?.preventDefault?.();
-            event?.stopPropagation?.();
-        }
     }
 }

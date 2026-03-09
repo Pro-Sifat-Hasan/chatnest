@@ -1,4 +1,5 @@
 import { fileToBase64 } from '../../utils/fileToBase64.js';
+import { extractResponseText } from '../../utils/response.js';
 
 /**
  * Send message with file attachments
@@ -36,39 +37,7 @@ export async function sendMessageWithFiles(chatnest, message, files = []) {
 
         const response = await chatnest.makeApiCall(requestData);
 
-        let responseText;
-        let products = [];
-
-        try {
-            if (chatnest.config.transformResponse) {
-                const transformed = chatnest.config.transformResponse(response);
-                if (typeof transformed === 'string') {
-                    responseText = transformed;
-                } else if (transformed && typeof transformed === 'object') {
-                    responseText = transformed.response || transformed.message || JSON.stringify(transformed);
-                    products = transformed.products || [];
-                } else {
-                    responseText = String(transformed);
-                }
-            } else if (typeof response === 'string') {
-                responseText = response;
-            } else if (response && typeof response === 'object') {
-                const fmt = chatnest.config.apiResponseFormat || {};
-                responseText = response.response || response.message || response.text || response.content || response.answer ||
-                    response[fmt.response] || JSON.stringify(response, null, 2);
-                products = response[fmt.products] || response.products || [];
-            } else {
-                responseText = String(response);
-            }
-
-            if (!responseText || responseText.trim() === '') {
-                throw new Error('Empty response received from server');
-            }
-
-        } catch (error) {
-            console.error('Error processing API response:', error);
-            responseText = 'Sorry, there was an error processing the response. Please try again.';
-        }
+        const { text: responseText, products } = extractResponseText(response, chatnest.config);
 
         chatnest.addMessage(responseText, 'bot', true, { products });
         chatnest.storageManager.saveMessage(responseText, 'bot', false, { products });

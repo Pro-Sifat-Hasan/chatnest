@@ -54,7 +54,12 @@ export function showHubSpotForm(chatnest) {
     chatWindow.appendChild(modalOverlay);
     chatnest.activeForm = modalOverlay;
 
+    // Inject modal styles only once — guard by ID to prevent duplicate <style> tags
+    // on repeated form shows/dismissals
+    const MODAL_STYLE_ID = 'chat-widget-hubspot-styles';
+    if (!document.getElementById(MODAL_STYLE_ID)) {
     const modalStyles = document.createElement('style');
+    modalStyles.id = MODAL_STYLE_ID;
     modalStyles.textContent = `
         .hubspot-form-modal-overlay {
             position: absolute;
@@ -327,6 +332,7 @@ export function showHubSpotForm(chatnest) {
         }
     `;
     document.head.appendChild(modalStyles);
+    } // end style guard
 
     const messagesContainer = chatnest.widget.querySelector('.chat-messages');
     if (messagesContainer) {

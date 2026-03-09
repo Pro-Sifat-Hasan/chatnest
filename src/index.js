@@ -4,7 +4,7 @@
  * @see https://github.com/Pro-Sifat-Hasan/chatnest
  */
 
-import { initConfig, ChatUserManager, ChatStorageManager, togglePositions, hexToRgb, isGradient, getThemeColor, getCurrentTheme, formatTimestamp as formatTimestampUtil, generateAvatarHtml, loadScript, formatFileSize as formatFileSizeUtil, isMobileBrowser, formatRequestData as formatRequestDataUtil } from './lib/index.js';
+import { initConfig, ChatUserManager, ChatStorageManager, togglePositions, hexToRgb, isGradient, getThemeColor, getCurrentTheme, formatTimestamp as formatTimestampUtil, generateAvatarHtml, loadScript, formatFileSize as formatFileSizeUtil, isMobileBrowser, formatRequestData as formatRequestDataUtil, SupabaseManager } from './lib/index.js';
 import { ParlantIntegration } from './parlant/index.js';
 import {
     applyTheme,
@@ -95,12 +95,24 @@ class Chatnest {
         this.storageManager = new ChatStorageManager(this.userManager, this.config);
         
         this.parlant = this.config.parlant.enabled ? new ParlantIntegration(this) : null;
+
+        // Supabase manager — initialized before widget boot if enabled
+        this.supabaseManager = this.config.supabase.enabled
+            ? new SupabaseManager(this.config.supabase)
+            : null;
+        this._lastSupabaseUserMessage = null;
         
-        this.ensureDependencies().then(() => {
+        this.ensureDependencies().then(async () => {
             this.initializeWidget();
             this.setupEventListeners();
             this.storageManager.setWidget(this);
-            this.loadChatHistory();
+
+            // Initialize Supabase before loading history so history comes from the DB
+            if (this.supabaseManager) {
+                await this.supabaseManager.initialize();
+            }
+
+            await this.loadChatHistory();
             this.setupEraseButton();
             
             if (this.parlant) {
@@ -156,15 +168,21 @@ class Chatnest {
     }
 
     async ensureDependencies() {
-        if (!window.marked && this.config.enableMarkdown) {
+        if (this.config.enableMarkdown && !window.marked) {
+            // 1. Try the bundled npm module (works in webpack/bundler builds)
             try {
-                await this.loadScript('https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js');
-                if (!window.marked) {
-                    this.config.enableMarkdown = false;
-                }
-            } catch (err) {
-                this.config.enableMarkdown = false;
+                const m = await import('marked');
+                // marked v9+ exports { marked } named; older exports default
+                window.marked = m.marked || m.default || m;
+            } catch (_) {
+                // 2. Fallback: load from CDN (plain-HTML / CDN usage)
+                try {
+                    await this.loadScript('https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js');
+                } catch (_e) { /* silent */ }
             }
+        }
+        if (this.config.enableMarkdown && typeof window.marked?.parse !== 'function') {
+            this.config.enableMarkdown = false;
         }
         this.loadStyles();
     }
@@ -329,22 +347,29 @@ class Chatnest {
         resetUIAfterSending(this, typingIndicator);
     }
 
-    loadChatHistory() {
-        loadChatHistoryImpl(this);
+    async loadChatHistory() {
+        return loadChatHistoryImpl(this);
     }
 
-    updateConfig(newConfig) {
+    async updateConfig(newConfig) {
         this.config = initConfig({ ...this.config, ...newConfig });
         if (this.storageManager) {
             this.storageManager.config = this.config;
             this.storageManager.enableHistory = this.config.enableHistory !== false;
             this.storageManager.maxHistoryLength = this.config.maxHistoryLength || 100;
         }
+        if (this.config.supabase.enabled) {
+            this.supabaseManager = new SupabaseManager(this.config.supabase);
+            await this.supabaseManager.initialize();
+        } else {
+            this.supabaseManager = null;
+        }
         this.destroy();
         this.createWidget();
         this.initializeWidget();
+        this.loadStyles();          // re-inject CSS after rebuild (was missing)
         this.setupEventListeners();
-        this.loadChatHistory();
+        await this.loadChatHistory();
         this.setupEraseButton();
     }
 

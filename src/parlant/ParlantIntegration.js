@@ -31,6 +31,9 @@ export class ParlantIntegration {
         this.queryResponses = new Map();
         this.typingIndicatorState = 'thinking';
         this.typingIndicatorTimeout = null;
+        this._safetyTimeout = null;
+        this._lastAgentEventTime = null;
+        this._lastAgentMessageTime = null;
     }
 
     get widget() {
@@ -166,7 +169,7 @@ export class ParlantIntegration {
                     }
 
                     if (event.source === 'ai_agent') {
-                        window.lastParlantAgentEventTime = Date.now();
+                        this._lastAgentEventTime = Date.now();
                     }
 
                     // Ready status - agent finished responding
@@ -307,7 +310,7 @@ export class ParlantIntegration {
                             }
 
                             this.processedMessageOffsets.add(event.offset);
-                            window.lastParlantAgentMessageTime = Date.now();
+                            this._lastAgentMessageTime = Date.now();
 
                             const messageRows = this.widget.querySelectorAll('.message-row');
                             const lastRow = messageRows[messageRows.length - 1];
@@ -324,8 +327,10 @@ export class ParlantIntegration {
                     }
                 }
             }
-        } catch {
-            // Network errors - silent
+        } catch (err) {
+            if (err?.name !== 'AbortError') {
+                console.warn('[Parlant] Poll error:', err?.message || err);
+            }
         }
     }
 
@@ -339,9 +344,9 @@ export class ParlantIntegration {
             clearInterval(this.pollingInterval);
             this.pollingInterval = null;
         }
-        if (window.currentParlantSafetyTimeout) {
-            clearTimeout(window.currentParlantSafetyTimeout);
-            window.currentParlantSafetyTimeout = null;
+        if (this._safetyTimeout) {
+            clearTimeout(this._safetyTimeout);
+            this._safetyTimeout = null;
         }
         if (this.readyStatusGracePeriodTimer) {
             clearTimeout(this.readyStatusGracePeriodTimer);
@@ -359,23 +364,24 @@ export class ParlantIntegration {
         }
     }
 
-    updateTypingIndicator(state) {
+    updateTypingIndicator(state = 'thinking') {
         if (!this.config.parlant.enabled) return;
         if (!this.config.showTypingText) return;
 
         const typingIndicator = this.widget?.querySelector('.typing-indicator');
         if (!typingIndicator) return;
 
-        this.typingIndicatorState = 'thinking';
-        let typingText = typingIndicator.querySelector('.typing-text');
+        this.typingIndicatorState = state;
 
+        let typingText = typingIndicator.querySelector('.typing-text');
         if (!typingText) {
             typingText = document.createElement('div');
             typingText.className = 'typing-text';
             typingIndicator.insertBefore(typingText, typingIndicator.firstChild);
         }
 
-        typingText.textContent = 'Thinking';
+        const labels = { thinking: 'Thinking', typing: 'Typing', processing: 'Processing' };
+        typingText.textContent = labels[state] ?? 'Thinking';
     }
 
     /**
@@ -421,9 +427,10 @@ export class ParlantIntegration {
             await this.pollForAgentResponse();
             setTimeout(() => this.pollForAgentResponse(), 500);
 
-            window.lastParlantAgentMessageTime = Date.now();
-            window.lastParlantAgentEventTime = Date.now();
+            this._lastAgentMessageTime = Date.now();
+            this._lastAgentEventTime = Date.now();
 
+            if (this._safetyTimeout) clearTimeout(this._safetyTimeout);
             const safetyTimeout = setTimeout(() => {
                 if (this.waitingForResponse) {
                     this.stopPolling();
@@ -447,7 +454,7 @@ export class ParlantIntegration {
                 }
             }, 60000);
 
-            window.currentParlantSafetyTimeout = safetyTimeout;
+            this._safetyTimeout = safetyTimeout;
 
             this.chatnest.isWaitingForResponse = false;
             if (resetInputState) resetInputState();

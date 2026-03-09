@@ -22,7 +22,7 @@ export function closeChat(chatnest) {
         }
     }
 
-    if (chatnest.activeModal) {
+    if (chatnest.activeForm) {
         chatnest.removeActiveForm();
     }
 

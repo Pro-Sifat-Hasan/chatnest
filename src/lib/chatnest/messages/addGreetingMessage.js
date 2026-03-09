@@ -33,13 +33,5 @@ export function addGreetingMessage(chatnest) {
         chatMessages.insertBefore(messageRow, chatMessages.firstChild);
 
         synchronizeGreetingWidth(chatnest, messageRow);
-
-        setTimeout(() => {
-            synchronizeGreetingWidth(chatnest, messageRow);
-        }, 100);
-
-        setTimeout(() => {
-            synchronizeGreetingWidth(chatnest, messageRow);
-        }, 300);
     }
 }

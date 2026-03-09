@@ -2,7 +2,7 @@
  * Setup responsive handling for chat window
  * @param {Chatnest} chatnest - Chatnest instance
  */
-import { togglePositions, debounce } from '../../index.js';
+import { togglePositions, debounce } from '../../constants.js';
 
 export function setupResponsiveHandling(chatnest) {
     const calculateOptimalSize = () => {

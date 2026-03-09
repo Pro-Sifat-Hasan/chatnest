@@ -91,8 +91,10 @@ export function createWidget(chatnest) {
                 </div>
                 <div class="chat-header-actions">
                     ${chatnest.config.enableDeleteButton ? `
-                    <button class="erase-chat">
-                        <img src="https://i.ibb.co.com/9YP3swm/erase.png" alt="Erase" title="Clear chat history">
+                    <button class="erase-chat" title="Clear chat history" aria-label="Clear chat history">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="20" height="20" aria-hidden="true">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
                     </button>
                     ` : ''}
                     <button class="close-chat">

@@ -35,11 +35,8 @@ export function setupTextBoxEventListeners(chatnest) {
             textBoxClose.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-
-                if (chatnest.config.showTextBoxCloseButton) {
-                    chatnest._textBoxManuallyClosed = true;
-                    textBox.style.display = 'none';
-                }
+                chatnest._textBoxManuallyClosed = true;
+                textBox.style.display = 'none';
             });
         }
     }

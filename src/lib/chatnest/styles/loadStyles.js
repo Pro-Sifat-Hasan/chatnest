@@ -4,15 +4,24 @@
  * @param {Chatnest} chatnest - Chatnest instance
  */
 export function loadStyles(chatnest) {
-        // Apply theme first
         chatnest.applyTheme();
-        
+
+        // Inject Google Fonts via <link> — @import inside a dynamically-injected
+        // <style> tag is unreliable in Safari and other browsers.
+        const FONT_LINK_ID = 'chat-widget-font';
+        if (!document.getElementById(FONT_LINK_ID)) {
+            const link = document.createElement('link');
+            link.id = FONT_LINK_ID;
+            link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap';
+            document.head.appendChild(link);
+        }
+
         const style = document.createElement('style');
         style.textContent = `
-            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
             :root {
                 --chat-primary-color: ${chatnest.config.primaryColor};
-                --chat-primary-color-gradient: ${chatnest.isGradient(chatnest.config.primaryColor) ? chatnest.config.primaryColor : chatnest.config.primaryColor};
+                --chat-primary-color-gradient: ${chatnest.config.primaryColor};
                 --chat-message-font-size: ${chatnest.config.fontSize};
                 --chat-width: ${chatnest.config.width};
                 --chat-height: ${chatnest.config.height};
@@ -42,23 +51,11 @@ export function loadStyles(chatnest) {
                 --chat-header-text: ${chatnest.getThemeColor('headerText')};
             }
 
-            * {
-                margin: 0;
-                padding: 0;
+            /* Scope reset strictly to the widget — never touch the host page */
+            .chat-widget,
+            .chat-widget * {
                 box-sizing: border-box;
                 font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-            }
-
-            body {
-                background-color: #f5f5f5;
-                min-height: 100vh;
-            }
-
-            /* Main Website Content */
-            .website-content {
-                padding: 2rem;
-                max-width: 1200px;
-                margin: 0 auto;
             }
 
             /* Chat Widget Container */

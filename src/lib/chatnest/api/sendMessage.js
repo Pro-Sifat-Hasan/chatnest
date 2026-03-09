@@ -1,3 +1,5 @@
+import { extractResponseText } from '../../utils/response.js';
+
 /**
  * Send a text message (regular API or Parlant)
  * @param {Chatnest} chatnest - Chatnest instance
@@ -52,6 +54,10 @@ export async function sendMessage(chatnest, message, isRegeneration = false) {
         if (!isRegeneration) {
             chatnest.addMessage(message, 'user');
             chatnest.storageManager.saveMessage(message, 'user');
+            // Track user message so we can pair it with bot response for Supabase
+            if (chatnest.supabaseManager?.isReady) {
+                chatnest._lastSupabaseUserMessage = message;
+            }
         }
 
         if (chatnest.parlant && chatnest.config.parlant.apiBaseUrl) {
@@ -65,42 +71,20 @@ export async function sendMessage(chatnest, message, isRegeneration = false) {
             const requestData = chatnest.formatRequestData(message);
             const response = await chatnest.makeApiCall(requestData);
 
-            let responseText;
-            let products = [];
-
-            try {
-                if (chatnest.config.transformResponse) {
-                    const transformed = chatnest.config.transformResponse(response);
-                    if (typeof transformed === 'string') {
-                        responseText = transformed;
-                    } else if (transformed && typeof transformed === 'object') {
-                        responseText = transformed.response || transformed.message || JSON.stringify(transformed);
-                        products = transformed.products || [];
-                    } else {
-                        responseText = String(transformed);
-                    }
-                } else if (typeof response === 'string') {
-                    responseText = response;
-                } else if (response && typeof response === 'object') {
-                    const fmt = chatnest.config.apiResponseFormat || {};
-                    responseText = response.response || response.message || response.text || response.content || response.answer ||
-                        response[fmt.response] || JSON.stringify(response, null, 2);
-                    products = response[fmt.products] || response.products || [];
-                } else {
-                    responseText = String(response);
-                }
-
-                if (!responseText || responseText.trim() === '') {
-                    throw new Error('Empty response received from server');
-                }
-
-            } catch (error) {
-                console.error('Error processing API response:', error);
-                responseText = 'Sorry, there was an error processing the response. Please try again.';
-            }
+            const { text: responseText, products } = extractResponseText(response, chatnest.config);
 
             chatnest.addMessage(responseText, 'bot', true, { products });
             chatnest.storageManager.saveMessage(responseText, 'bot', isRegeneration, { products });
+
+            // Persist the Q&A pair to Supabase when enabled
+            if (chatnest.supabaseManager?.isReady && !isRegeneration) {
+                const userId = chatnest.userManager.currentUser;
+                const domain = chatnest.userManager.domain;
+                const userQuery = chatnest._lastSupabaseUserMessage || message;
+                chatnest.supabaseManager.saveChatPair(userId, domain, userQuery, responseText)
+                    .catch(err => console.error('[Supabase] background save failed:', err));
+                chatnest._lastSupabaseUserMessage = null;
+            }
 
             enableSending();
             resetInputState();

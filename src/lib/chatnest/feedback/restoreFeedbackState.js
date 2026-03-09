@@ -5,13 +5,16 @@
  * @param {string} response - The bot response text
  */
 export function restoreFeedbackState(chatnest, container, response) {
-    const feedbackKey = `feedback_${chatnest.userManager.currentUser}`;
-    const feedbackState = JSON.parse(localStorage.getItem(feedbackKey) || '{}');
-    const state = feedbackState[response];
+    try {
+        const feedbackKey = `feedback_${chatnest.userManager.currentUser}`;
+        const raw = localStorage.getItem(feedbackKey);
+        const feedbackState = raw ? JSON.parse(raw) : {};
+        const state = feedbackState[response];
+        if (!state) return;
 
-    if (state) {
-        const likeBtn = container.querySelector('.like-btn');
-        const dislikeBtn = container.querySelector('.dislike-btn');
+        const likeBtn = container?.querySelector('.like-btn');
+        const dislikeBtn = container?.querySelector('.dislike-btn');
+        if (!likeBtn || !dislikeBtn) return;
 
         if (state === 'like') {
             likeBtn.classList.add('active');
@@ -20,5 +23,7 @@ export function restoreFeedbackState(chatnest, container, response) {
             dislikeBtn.classList.add('active');
             likeBtn.classList.remove('active');
         }
+    } catch (_) {
+        // Storage may be unavailable or contain corrupted data
     }
 }

@@ -1,3 +1,5 @@
+import { escapeHtml } from '../../../utils/dom.js';
+
 /**
  * Update file preview display
  * @param {Chatnest} chatnest - Chatnest instance
@@ -47,8 +49,3 @@ export function updateFilePreview(chatnest, files, filePreview) {
     }).join('');
 }
 
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}

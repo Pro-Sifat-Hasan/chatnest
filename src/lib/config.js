@@ -77,10 +77,14 @@ export function initConfig(config) {
         apiMethod: config.apiMethod || 'POST',
         apiTimeout: config.apiTimeout || 30000,
         enableBackendHistory: config.enableBackendHistory !== false,
-        backendHistoryEndpoint: formatApiEndpoint(config.backendHistoryEndpoint),
-        deleteEndpoint: formatApiEndpoint(config.deleteEndpoint) || `${apiEndpoint.replace(/\/chat$/, '')}/delete-history`,
+        backendHistoryEndpoint: config.backendHistoryEndpoint ? formatApiEndpoint(config.backendHistoryEndpoint) : '',
+        deleteEndpoint: config.deleteEndpoint
+            ? formatApiEndpoint(config.deleteEndpoint)
+            : `${apiEndpoint.replace(/\/chat$/, '')}/delete-history`,
         separateSubpageHistory: config.separateSubpageHistory || false,
-        feedbackEndpoint: formatApiEndpoint(config.feedbackEndpoint) || `${apiEndpoint.replace(/\/$/, '')}/feedback`,
+        feedbackEndpoint: config.feedbackEndpoint
+            ? formatApiEndpoint(config.feedbackEndpoint)
+            : `${apiEndpoint.replace(/\/?$/, '')}/feedback`,
         hubspot: {
             enabled: config.hubspot?.enabled || false,
             portalId: config.hubspot?.portalId || '',
@@ -131,6 +135,13 @@ export function initConfig(config) {
         parlant: {
             enabled: config.parlant?.enabled || false,
             apiBaseUrl: config.parlant?.apiBaseUrl || ''
+        },
+        supabase: {
+            enabled: config.supabase?.enabled || false,
+            url: config.supabase?.url || '',
+            anonKey: config.supabase?.anonKey || '',
+            tableName: config.supabase?.tableName || 'chat_history',
+            historyLimit: config.supabase?.historyLimit || 50
         }
     };
 }

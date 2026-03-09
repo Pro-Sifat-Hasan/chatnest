@@ -56,11 +56,14 @@ export function setupEventListeners(chatnest) {
         });
     }
 
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && chatWindow && chatWindow.classList.contains('active')) {
+    // Remove stale global listeners before re-registering (guards against updateConfig re-runs)
+    if (chatnest._keydownHandler) document.removeEventListener('keydown', chatnest._keydownHandler);
+    chatnest._keydownHandler = (e) => {
+        if (e.key === 'Escape' && chatnest.widget?.querySelector('.chat-window')?.classList.contains('active')) {
             chatnest.closeChat();
         }
-    });
+    };
+    document.addEventListener('keydown', chatnest._keydownHandler);
 
     if (sendButton) {
         sendButton.disabled = false;
@@ -91,6 +94,18 @@ export function setupEventListeners(chatnest) {
             try {
                 chatInput.style.height = 'auto';
             } catch (_) {}
+        }
+
+        // Check HubSpot keyword triggers before dispatching
+        if (
+            chatnest.config.hubspot?.enabled &&
+            !chatnest.userManager.hasSubmittedForm() &&
+            rawMessage.trim()
+        ) {
+            const triggered = chatnest.checkForTriggerWords(rawMessage);
+            if (triggered) {
+                setTimeout(() => chatnest.showHubSpotForm(), 200);
+            }
         }
 
         if (chatnest.config.enableFileUpload && selectedFiles.length > 0) {
@@ -221,51 +236,64 @@ export function setupEventListeners(chatnest) {
         }
     };
 
-    window.addEventListener('resize', applyMobileHeight);
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', applyMobileHeight);
-        window.visualViewport.addEventListener('scroll', applyMobileHeight);
+    // Remove stale resize / orientation listeners
+    if (chatnest._resizeHandler) window.removeEventListener('resize', chatnest._resizeHandler);
+    if (chatnest._orientationHandler) window.removeEventListener('orientationchange', chatnest._orientationHandler);
+    if (chatnest._vpResizeHandler && window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', chatnest._vpResizeHandler);
+        window.visualViewport.removeEventListener('scroll', chatnest._vpResizeHandler);
     }
 
-    window.addEventListener('orientationchange', () => {
+    chatnest._resizeHandler = applyMobileHeight;
+    chatnest._orientationHandler = () => {
         setTimeout(() => {
             applyMobileHeight();
-            if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
+            const msgs = chatnest.widget?.querySelector('.chat-messages');
+            if (msgs) msgs.scrollTop = msgs.scrollHeight;
         }, 150);
-    });
+    };
+    chatnest._vpResizeHandler = applyMobileHeight;
+
+    window.addEventListener('resize', chatnest._resizeHandler);
+    window.addEventListener('orientationchange', chatnest._orientationHandler);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', chatnest._vpResizeHandler);
+        window.visualViewport.addEventListener('scroll', chatnest._vpResizeHandler);
+    }
 
     applyMobileHeight();
 
-    const style = document.createElement('style');
-    style.textContent = `
-        .chat-input input:disabled,
-        .chat-input .chat-textarea:disabled {
-            background-color: #f3f4f6;
-            cursor: not-allowed;
-            opacity: 0.8;
-        }
-
-        .send-button:disabled {
-            cursor: not-allowed;
-            opacity: 0.5;
-            filter: grayscale(0.3);
-        }
-
-        .chat-input-container.waiting {
-            position: relative;
-        }
-
-        .chat-input-container.waiting::after {
-            content: 'Waiting for response...';
-            position: absolute;
-            top: -22px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 12px;
-            font-weight: 500;
-            color: #6b7280;
-            white-space: nowrap;
-        }
-    `;
-    document.head.appendChild(style);
+    // Inject input-state styles once (guarded by ID)
+    if (!document.getElementById('chat-widget-input-styles')) {
+        const style = document.createElement('style');
+        style.id = 'chat-widget-input-styles';
+        style.textContent = `
+            .chat-input input:disabled,
+            .chat-input .chat-textarea:disabled {
+                background-color: #f3f4f6;
+                cursor: not-allowed;
+                opacity: 0.8;
+            }
+            .send-button:disabled {
+                cursor: not-allowed;
+                opacity: 0.5;
+                filter: grayscale(0.3);
+            }
+            .chat-input-container.waiting {
+                position: relative;
+            }
+            .chat-input-container.waiting::after {
+                content: 'Waiting for response\2026';
+                position: absolute;
+                top: -22px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 12px;
+                font-weight: 500;
+                color: #6b7280;
+                white-space: nowrap;
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }

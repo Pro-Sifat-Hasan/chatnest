@@ -38,3 +38,15 @@ export function formatFileSize(bytes) {
 export function isMobileBrowser() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
+
+/**
+ * Safely escape a string for insertion into HTML.
+ * Avoids duplicate implementations across message/file modules.
+ * @param {string} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str ?? '');
+    return div.innerHTML;
+}
