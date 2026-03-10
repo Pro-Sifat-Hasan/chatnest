@@ -141,7 +141,8 @@ export function initConfig(config) {
             url: config.supabase?.url || '',
             anonKey: config.supabase?.anonKey || '',
             tableName: config.supabase?.tableName || 'chat_history',
-            historyLimit: config.supabase?.historyLimit || 50
+            historyLimit: config.supabase?.historyLimit || 50,
+            pollIntervalMs: config.supabase?.pollIntervalMs ?? 5000
         }
     };
 }

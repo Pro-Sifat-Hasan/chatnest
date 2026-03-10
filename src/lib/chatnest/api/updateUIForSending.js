@@ -5,6 +5,7 @@
  * @param {Element} chatInput - Chat input element
  */
 export function updateUIForSending(chatnest, typingIndicator, chatInput) {
+    chatnest._userHasScrolledUp = false;
     chatnest.addMessage(chatInput.value.trim(), 'user');
     chatnest.storageManager.saveMessage(chatInput.value.trim(), 'user');
     chatInput.value = '';

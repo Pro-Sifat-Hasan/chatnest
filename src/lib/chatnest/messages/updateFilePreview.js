@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../../utils/dom.js';
+import { escapeHtml } from '../../utils/dom.js';
 
 /**
  * Update file preview display

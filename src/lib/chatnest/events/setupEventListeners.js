@@ -218,6 +218,18 @@ export function setupEventListeners(chatnest) {
         chatMessages.style.overscrollBehavior = 'contain';
     }
 
+    if (chatMessages) {
+        chatnest._userHasScrolledUp = false;
+        if (chatnest._chatScrollHandler) chatMessages.removeEventListener('scroll', chatnest._chatScrollHandler);
+        chatnest._chatScrollHandler = () => {
+            const maxScroll = Math.max(0, chatMessages.scrollHeight - chatMessages.clientHeight);
+            const currentScroll = chatMessages.scrollTop;
+            const isNearBottom = maxScroll - currentScroll < 80;
+            chatnest._userHasScrolledUp = !isNearBottom && maxScroll > 100;
+        };
+        chatMessages.addEventListener('scroll', chatnest._chatScrollHandler);
+    }
+
     const getMobileViewportHeight = () => {
         try {
             const vv = window.visualViewport;
@@ -283,7 +295,7 @@ export function setupEventListeners(chatnest) {
                 position: relative;
             }
             .chat-input-container.waiting::after {
-                content: 'Waiting for response\2026';
+                content: 'Waiting for response...';
                 position: absolute;
                 top: -22px;
                 left: 50%;

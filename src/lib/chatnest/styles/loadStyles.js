@@ -1614,8 +1614,8 @@ export function loadStyles(chatnest) {
                     margin: 0 !important;
                     padding: 0 !important;
                     object-fit: contain !important;
-                    /* Ensure icon is visible on primary background */
-                    filter: brightness(0) invert(1) !important;
+                    /* Modern chromatic aberration (pink + cyan glow) */
+                    filter: drop-shadow(0.5px 0 0 rgba(255,107,157,0.65)) drop-shadow(-0.5px 0 0 rgba(0,212,255,0.65)) brightness(0) invert(1) !important;
                     pointer-events: none !important;
                 }
                 
@@ -1694,7 +1694,8 @@ export function loadStyles(chatnest) {
                 object-fit: contain !important;
                 display: block !important;
                 flex-shrink: 0 !important;
-                filter: brightness(0) invert(1) !important;
+                /* Modern chromatic aberration (pink + cyan glow) */
+                filter: drop-shadow(0.5px 0 0 rgba(255,107,157,0.65)) drop-shadow(-0.5px 0 0 rgba(0,212,255,0.65)) brightness(0) invert(1) !important;
                 pointer-events: none !important;
             }
             }

@@ -1,5 +1,5 @@
 import { fileToBase64 } from '../../utils/fileToBase64.js';
-import { extractResponseText } from '../../utils/response.js';
+import { extractResponseText, splitResponseByTripleComma, isEmptyResponse } from '../../utils/response.js';
 
 /**
  * Send message with file attachments
@@ -25,6 +25,7 @@ export async function sendMessageWithFiles(chatnest, message, files = []) {
         typingIndicator.classList.add('active');
         setTimeout(() => chatnest.startJavaScriptTypingAnimation(), 100);
 
+        chatnest._userHasScrolledUp = false;
         chatnest.addMessage(message, 'user', true, { files });
         const imageFiles = files.filter(f => f && f.type && f.type.startsWith('image/'));
         const filesForStorage = imageFiles.length > 0
@@ -39,8 +40,25 @@ export async function sendMessageWithFiles(chatnest, message, files = []) {
 
         const { text: responseText, products } = extractResponseText(response, chatnest.config);
 
-        chatnest.addMessage(responseText, 'bot', true, { products });
-        chatnest.storageManager.saveMessage(responseText, 'bot', false, { products });
+        const parts = splitResponseByTripleComma(responseText);
+        parts.forEach((part, i) => {
+            const isLast = i === parts.length - 1;
+            chatnest.addMessage(part, 'bot', true, {
+                products: i === 0 ? products : [],
+                skipMessageActions: !isLast
+            });
+        });
+        if (!isEmptyResponse(responseText)) {
+            chatnest.storageManager.saveMessage(responseText, 'bot', false, { products });
+        }
+        if (chatnest.supabaseManager?.isReady && !isEmptyResponse(responseText)) {
+            chatnest.supabaseManager.saveChatPair(
+                chatnest.userManager.currentUser,
+                chatnest.userManager.domain,
+                message,
+                responseText
+            ).catch(err => console.error('[Supabase] save failed:', err));
+        }
 
     } catch (error) {
         console.error('API Error:', error);

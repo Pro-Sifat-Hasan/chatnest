@@ -16,9 +16,9 @@ export function createWidget(chatnest) {
         .map(([key, value]) => `${key}: ${value};`)
         .join(' ');
 
-    // Generate send button icon
+    // Modern send icon: sleek paper airplane with sharp edges (white)
     const generateSendIcon = () => {
-        return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z'/%3E%3C/svg%3E`;
+        return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.993.993 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.06-.87.49-.87.99l.01 4.61c0 .71.73 1.2 1.39.91z'/%3E%3C/svg%3E`;
     };
 
     const generateToggleIcon = () => {

@@ -12,7 +12,7 @@ A lightweight, customizable AI chat widget. Drop it into any website in minutes.
 
 **CDN**
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.0/dist/chatnest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.1/dist/chatnest.min.js"></script>
 ```
 
 **npm**
@@ -28,7 +28,7 @@ import Chatnest from 'chatnest';
 ## Quick Start
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.0/dist/chatnest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.1/dist/chatnest.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     new Chatnest({
@@ -178,6 +178,7 @@ Persist chat history in Supabase so sessions survive across devices and browsers
 | `supabase.anonKey` | `string` | `''` | Supabase anon/public API key |
 | `supabase.tableName` | `string` | `'chat_history'` | Table to store messages |
 | `supabase.historyLimit` | `number` | `50` | Max rows to load on widget open |
+| `supabase.pollIntervalMs` | `number` | `5000` | Background refresh interval (ms); Realtime gives instant delivery |
 
 ### Parlant Integration
 
@@ -215,6 +216,9 @@ CREATE INDEX IF NOT EXISTS idx_chat_history_timestamp   ON chat_history (timesta
 
 ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "chat_history_open" ON chat_history FOR ALL USING (true) WITH CHECK (true);
+
+-- Enable Realtime for instant Messenger-like delivery (optional but recommended)
+ALTER PUBLICATION supabase_realtime ADD TABLE chat_history;
 ```
 
 ### 2. Configure
@@ -233,6 +237,11 @@ new Chatnest({
 ```
 
 > Find `url` and `anonKey` in **Supabase → Project Settings → API**.
+
+**Real-time sync** — The widget polls for new rows every 3 seconds. When a human agent or backend adds a reply to `chat_history`, it appears live, like Messenger. Tune with `supabase.pollIntervalMs`.
+
+**Multi-part responses (`,,,`)** — If your API returns multiple replies concatenated with three commas, ChatNest splits them into separate messages:  
+`"Hello!,,,How can I help?"` → two bot messages.
 
 ---
 

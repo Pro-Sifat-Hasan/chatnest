@@ -12,4 +12,3 @@ export { getCurrentTheme, getThemeColor, formatTimestamp, THEME_COLORS } from '.
 export { loadScript, formatFileSize, isMobileBrowser, escapeHtml } from './utils/dom.js';
 export { validateFullName, validateEmail, validatePhoneNumber } from './utils/form.js';
 export { formatRequestData } from './api.js';
-export { SupabaseManager } from './supabase/index.js';

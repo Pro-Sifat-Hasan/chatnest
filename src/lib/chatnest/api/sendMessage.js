@@ -1,4 +1,4 @@
-import { extractResponseText } from '../../utils/response.js';
+import { extractResponseText, splitResponseByTripleComma, isEmptyResponse } from '../../utils/response.js';
 
 /**
  * Send a text message (regular API or Parlant)
@@ -52,6 +52,7 @@ export async function sendMessage(chatnest, message, isRegeneration = false) {
         disableSending();
 
         if (!isRegeneration) {
+            chatnest._userHasScrolledUp = false;
             chatnest.addMessage(message, 'user');
             chatnest.storageManager.saveMessage(message, 'user');
             // Track user message so we can pair it with bot response for Supabase
@@ -73,11 +74,19 @@ export async function sendMessage(chatnest, message, isRegeneration = false) {
 
             const { text: responseText, products } = extractResponseText(response, chatnest.config);
 
-            chatnest.addMessage(responseText, 'bot', true, { products });
-            chatnest.storageManager.saveMessage(responseText, 'bot', isRegeneration, { products });
+            const parts = splitResponseByTripleComma(responseText);
+            parts.forEach((part, i) => {
+                const isLast = i === parts.length - 1;
+                chatnest.addMessage(part, 'bot', true, {
+                    products: i === 0 ? products : [],
+                    skipMessageActions: !isLast
+                });
+            });
+            if (!isEmptyResponse(responseText)) {
+                chatnest.storageManager.saveMessage(responseText, 'bot', isRegeneration, { products });
+            }
 
-            // Persist the Q&A pair to Supabase when enabled
-            if (chatnest.supabaseManager?.isReady && !isRegeneration) {
+            if (chatnest.supabaseManager?.isReady && !isRegeneration && !isEmptyResponse(responseText)) {
                 const userId = chatnest.userManager.currentUser;
                 const domain = chatnest.userManager.domain;
                 const userQuery = chatnest._lastSupabaseUserMessage || message;

@@ -4,8 +4,7 @@
  * @see https://github.com/Pro-Sifat-Hasan/chatnest
  */
 
-import { initConfig, ChatUserManager, ChatStorageManager, togglePositions, hexToRgb, isGradient, getThemeColor, getCurrentTheme, formatTimestamp as formatTimestampUtil, generateAvatarHtml, loadScript, formatFileSize as formatFileSizeUtil, isMobileBrowser, formatRequestData as formatRequestDataUtil, SupabaseManager } from './lib/index.js';
-import { ParlantIntegration } from './parlant/index.js';
+import { initConfig, ChatUserManager, ChatStorageManager, togglePositions, hexToRgb, isGradient, getThemeColor, getCurrentTheme, formatTimestamp as formatTimestampUtil, generateAvatarHtml, loadScript, formatFileSize as formatFileSizeUtil, isMobileBrowser, formatRequestData as formatRequestDataUtil } from './lib/index.js';
 import {
     applyTheme,
     createWidget,
@@ -93,31 +92,27 @@ class Chatnest {
         this.isGradient = isGradient;
         this.userManager = new ChatUserManager(this.config);
         this.storageManager = new ChatStorageManager(this.userManager, this.config);
-        
-        this.parlant = this.config.parlant.enabled ? new ParlantIntegration(this) : null;
-
-        // Supabase manager — initialized before widget boot if enabled
-        this.supabaseManager = this.config.supabase.enabled
-            ? new SupabaseManager(this.config.supabase)
-            : null;
+        this.parlant = null;
+        this.supabaseManager = null;
         this._lastSupabaseUserMessage = null;
-        
+
         this.ensureDependencies().then(async () => {
+            if (this.config.supabase.enabled) {
+                const { SupabaseManager } = await import('./lib/supabase/index.js');
+                this.supabaseManager = new SupabaseManager(this.config.supabase);
+                await this.supabaseManager.initialize();
+            }
+            if (this.config.parlant.enabled) {
+                const { ParlantIntegration } = await import('./parlant/index.js');
+                this.parlant = new ParlantIntegration(this);
+                this.parlant.initialize();
+            }
+
             this.initializeWidget();
             this.setupEventListeners();
             this.storageManager.setWidget(this);
-
-            // Initialize Supabase before loading history so history comes from the DB
-            if (this.supabaseManager) {
-                await this.supabaseManager.initialize();
-            }
-
             await this.loadChatHistory();
             this.setupEraseButton();
-            
-            if (this.parlant) {
-                this.parlant.initialize();
-            }
         });
         this.activeForm = null; // Add this to track active form
         
@@ -359,6 +354,7 @@ class Chatnest {
             this.storageManager.maxHistoryLength = this.config.maxHistoryLength || 100;
         }
         if (this.config.supabase.enabled) {
+            const { SupabaseManager } = await import('./lib/supabase/index.js');
             this.supabaseManager = new SupabaseManager(this.config.supabase);
             await this.supabaseManager.initialize();
         } else {

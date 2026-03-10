@@ -26,6 +26,12 @@ export function destroy(chatnest) {
         chatnest.parlant.cleanup();
     }
 
+    if (chatnest.supabaseManager) {
+        chatnest.supabaseManager.stopRealtimeSync();
+        chatnest.supabaseManager.stopRealtimeSubscription();
+        chatnest.supabaseManager.stopBackgroundRefresh();
+    }
+
     document.body.style.overflow = '';
     document.body.style.position = '';
     document.body.style.width = '';

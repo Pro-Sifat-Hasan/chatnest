@@ -121,7 +121,21 @@ function escapeHtml(str) {
  * @param {boolean} useTypewriter - Use typewriter effect
  * @param {Object} meta - Additional metadata
  */
+function isEffectivelyEmpty(text) {
+    if (text == null) return true;
+    const s = String(text).trim();
+    if (!s) return true;
+    if (/^\s*\{\s*"response"\s*:\s*""\s*\}\s*$/i.test(s) || s === '{}') return true;
+    try {
+        const o = JSON.parse(s);
+        const v = o?.response ?? o?.message ?? o?.text ?? o?.content ?? o?.answer;
+        return v == null || String(v).trim() === '';
+    } catch (_) { return false; }
+}
+
 export function addMessage(chatnest, text, sender, useTypewriter = true, meta = {}) {
+    if (sender === 'bot' && isEffectivelyEmpty(text)) return;
+
     const chatMessages = chatnest.widget.querySelector('.chat-messages');
     const typingIndicator = chatnest.widget.querySelector('.typing-indicator');
     const timestampText = chatnest.config.showTimestamp ? chatnest.formatTimestamp(meta.timestamp) : '';
@@ -146,7 +160,8 @@ export function addMessage(chatnest, text, sender, useTypewriter = true, meta = 
         messageDiv.innerHTML = avatarHtml;
 
         let actionsDiv = null;
-        if (chatnest.config.showMessageActions) {
+        const showActions = chatnest.config.showMessageActions && !meta.skipMessageActions;
+        if (showActions) {
             actionsDiv = document.createElement('div');
             actionsDiv.className = 'message-actions';
             actionsDiv.style.display = 'none';
@@ -196,7 +211,7 @@ export function addMessage(chatnest, text, sender, useTypewriter = true, meta = 
                 messageDiv.appendChild(contentContainer);
 
                 chatnest.typeWriter(contentContainer, window.marked.parse(text), () => {
-                    if (actionsDiv && chatnest.config.showMessageActions) {
+                    if (actionsDiv && showActions) {
                         actionsDiv.style.display = 'flex';
                     }
                     chatnest.setupMessageLinks(contentContainer);
@@ -219,7 +234,7 @@ export function addMessage(chatnest, text, sender, useTypewriter = true, meta = 
                 }
                 messageDiv.appendChild(contentContainer);
 
-                if (actionsDiv && chatnest.config.showMessageActions) {
+                if (actionsDiv && showActions) {
                     actionsDiv.style.display = 'flex';
                 }
                 chatnest.setupMessageLinks(contentContainer);
@@ -250,7 +265,7 @@ export function addMessage(chatnest, text, sender, useTypewriter = true, meta = 
             }
             messageDiv.appendChild(contentContainer);
 
-            if (actionsDiv && chatnest.config.showMessageActions) {
+            if (actionsDiv && showActions) {
                 actionsDiv.style.display = 'flex';
             }
         }
@@ -281,8 +296,8 @@ export function addMessage(chatnest, text, sender, useTypewriter = true, meta = 
 
         messageRow.appendChild(botMessageContainer);
 
-        if (chatnest.config.showMessageActions) {
-            if (chatnest.parlant && actionsDiv) {
+        if (showActions && actionsDiv) {
+            if (chatnest.parlant) {
                 actionsDiv.style.display = 'none';
             }
             chatnest.setupMessageActions(botMessageContainer, text);

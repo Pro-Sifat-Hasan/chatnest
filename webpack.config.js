@@ -6,9 +6,15 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'chatnest.min.js',
+    chunkFilename: 'chatnest.[name].chunk.js',
     library: 'Chatnest',
     libraryTarget: 'umd',
     globalObject: 'typeof self !== "undefined" ? self : this'
+  },
+  performance: {
+    hints: 'warning',
+    maxEntrypointSize: 512000,
+    maxAssetSize: 512000
   },
   module: {
     rules: [
@@ -18,7 +24,7 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: [['@babel/preset-env', { modules: false }]]
+            presets: [['@babel/preset-env', { modules: 'commonjs' }]]
           }
         }
       },
