@@ -86,13 +86,20 @@ export async function sendMessage(chatnest, message, isRegeneration = false) {
                 chatnest.storageManager.saveMessage(responseText, 'bot', isRegeneration, { products });
             }
 
+            // Save to Supabase before releasing the response-in-flight guard.
+            // This prevents backgroundRefresh from wiping the live messages before
+            // the pair is persisted — if the guard is cleared while the save is
+            // still pending the next refresh will omit the new messages.
             if (chatnest.supabaseManager?.isReady && !isRegeneration && !isEmptyResponse(responseText)) {
                 const userId = chatnest.userManager.currentUser;
                 const domain = chatnest.userManager.domain;
                 const userQuery = chatnest._lastSupabaseUserMessage || message;
-                chatnest.supabaseManager.saveChatPair(userId, domain, userQuery, responseText)
-                    .catch(err => console.error('[Supabase] background save failed:', err));
                 chatnest._lastSupabaseUserMessage = null;
+                try {
+                    await chatnest.supabaseManager.saveChatPair(userId, domain, userQuery, responseText);
+                } catch (err) {
+                    console.error('[Supabase] background save failed:', err);
+                }
             }
 
             enableSending();

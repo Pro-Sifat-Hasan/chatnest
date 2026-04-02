@@ -35,3 +35,4 @@ Parlant-ui/
 #  Agent skills
 skills-lock.json
 .cursor/
+.claude/

@@ -6,6 +6,9 @@
  * @param {Function} callback - Callback when done
  */
 export function typeWriter(chatnest, element, text, callback) {
+    // Use a reference counter so concurrent multi-part typewriters don't
+    // prematurely clear isTypewriterActive when the first part finishes.
+    chatnest._typewriterCount = (chatnest._typewriterCount || 0) + 1;
     chatnest.isTypewriterActive = true;
     chatnest.disableSendingFunctionality();
 
@@ -101,8 +104,11 @@ export function typeWriter(chatnest, element, text, callback) {
                 chatMessages.removeEventListener('scroll', scrollHandler);
             }
 
-            chatnest.isTypewriterActive = false;
-            chatnest.enableSendingFunctionality();
+            chatnest._typewriterCount = Math.max(0, (chatnest._typewriterCount || 1) - 1);
+            if (chatnest._typewriterCount === 0) {
+                chatnest.isTypewriterActive = false;
+                chatnest.enableSendingFunctionality();
+            }
 
             if (callback) callback();
             return;
@@ -141,9 +147,12 @@ export function typeWriter(chatnest, element, text, callback) {
                 } catch (error) {
                     console.error('Typewriter error:', error);
                     element.innerHTML = text;
-                    chatnest.isTypewriterActive = false;
-                    chatnest.enableSendingFunctionality();
-                    chatnest.forceEnableInput();
+                    chatnest._typewriterCount = Math.max(0, (chatnest._typewriterCount || 1) - 1);
+                    if (chatnest._typewriterCount === 0) {
+                        chatnest.isTypewriterActive = false;
+                        chatnest.enableSendingFunctionality();
+                        chatnest.forceEnableInput();
+                    }
                     if (callback) callback();
                 }
             }, delay);

@@ -63,6 +63,8 @@ export async function loadChatHistory(chatnest) {
 
         function addRowToUI(row) {
             if (!chatnest.widget) return;
+            // Skip if a response is currently in progress — the message is already live in the UI
+            if (chatnest.isWaitingForResponse || chatnest.isTypewriterActive) return;
             chatnest.addMessage(row.query, 'user', false, { timestamp: row.timestamp });
             chatnest.storageManager.saveMessage(row.query, 'user');
             const parts = chatnest.supabaseManager._splitParts(row.response);
@@ -81,6 +83,8 @@ export async function loadChatHistory(chatnest) {
 
         async function fetchAndRenderSupabaseHistory() {
             if (!chatnest.widget) return;
+            // Never wipe and re-render while a live response/typewriter is active
+            if (chatnest.isWaitingForResponse || chatnest.isTypewriterActive) return;
             const chatMessages = chatnest.widget.querySelector('.chat-messages');
             if (!chatMessages) return;
             const userId = chatnest.userManager.currentUser;
@@ -90,6 +94,9 @@ export async function loadChatHistory(chatnest) {
                 chatnest.supabaseManager.getChatHistory(userId, domain),
                 Promise.resolve(chatnest.storageManager.getChatHistory())
             ]);
+
+            // Re-check after async fetch — a new response may have started while we awaited
+            if (chatnest.isWaitingForResponse || chatnest.isTypewriterActive) return;
 
             chatnest.supabaseManager.setLastSeenFromRows(rows);
             const supabaseMessages = chatnest.supabaseManager.rowsToMessages(rows);

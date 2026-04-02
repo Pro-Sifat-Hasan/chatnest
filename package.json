@@ -2,31 +2,46 @@
   "name": "chatnest",
   "version": "3.4.1",
   "description": "A lightweight, customizable, and responsive chat widget for modern web applications.",
-  "keywords": ["chat", "widget", "chatbot", "ai", "assistant"],
+  "keywords": [
+    "chat",
+    "widget",
+    "chatbot",
+    "ai",
+    "assistant"
+  ],
   "homepage": "https://github.com/Pro-Sifat-Hasan/chatnest#readme",
-  "bugs": {"url": "https://github.com/Pro-Sifat-Hasan/chatnest/issues"},
-  "repository": {"type": "git", "url": "git+https://github.com/Pro-Sifat-Hasan/chatnest.git"},
+  "bugs": {
+    "url": "https://github.com/Pro-Sifat-Hasan/chatnest/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pro-Sifat-Hasan/chatnest.git"
+  },
   "license": "MIT",
   "author": "Sifat Hasan",
   "type": "commonjs",
   "main": "dist/chatnest.min.js",
-  "unpkg": "dist/chatnest.min.js",
-  "jsdelivr": "dist/chatnest.min.js",
   "scripts": {
     "build": "webpack --mode production",
     "dev": "webpack --mode development --watch",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
   },
-  "dependencies": {},
   "devDependencies": {
-    "marked": "^9.1.6",
     "@babel/core": "^7.23.0",
     "@babel/preset-env": "^7.22.20",
+    "@jest/globals": "^30.3.0",
     "babel-loader": "^9.1.3",
     "css-loader": "^6.8.1",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "marked": "^9.1.6",
     "style-loader": "^3.3.3",
     "terser-webpack-plugin": "^5.3.9",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"
-  }
+  },
+  "unpkg": "dist/chatnest.min.js",
+  "jsdelivr": "dist/chatnest.min.js"
 }
