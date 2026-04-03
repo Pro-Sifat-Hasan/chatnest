@@ -12,7 +12,7 @@ A lightweight, customizable AI chat widget. Drop it into any website in minutes.
 
 **CDN**
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.5/dist/chatnest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.6/dist/chatnest.min.js"></script>
 ```
 
 **npm**
@@ -28,7 +28,7 @@ import Chatnest from 'chatnest';
 ## Quick Start
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.5/dist/chatnest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.6/dist/chatnest.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     new Chatnest({
