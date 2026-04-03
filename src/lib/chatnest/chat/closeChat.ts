@@ -1,0 +1,61 @@
+/**
+ * Close the chat window
+ * @param {Chatnest} chatnest - Chatnest instance
+ */
+export function closeChat(chatnest: any) {
+    const chatWindow = chatnest.widget.querySelector('.chat-window');
+    const chatToggle = chatnest.widget.querySelector('.chat-toggle');
+    const chatInput = chatnest.widget.querySelector('.chat-input .chat-textarea');
+
+    if (chatnest.parlant) {
+        chatnest.parlant.stopPolling();
+    }
+
+    if (chatInput) {
+        chatInput.classList.remove('cursor-active', 'mobile-focused');
+        chatInput.blur();
+        chatInput.style.caretColor = '';
+
+        if (chatnest._mobileInputCleanup) {
+            chatnest._mobileInputCleanup();
+            chatnest._mobileInputCleanup = null;
+        }
+    }
+
+    if (chatnest.activeForm) {
+        chatnest.removeActiveForm();
+    }
+
+    document.body.style.setProperty('overflow', '', 'important');
+    document.body.style.setProperty('position', '', 'important');
+    document.body.style.setProperty('width', '', 'important');
+    document.documentElement.style.setProperty('overflow', '', 'important');
+
+    const chatMessages = chatnest.widget.querySelector('.chat-messages');
+    if (chatMessages) {
+        chatMessages.style.overflow = '';
+        chatMessages.style.overscrollBehavior = '';
+    }
+
+    chatWindow.classList.remove('active');
+    chatnest.updateToggleIcon(false);
+
+    // Return focus to toggle so keyboard/AT users don't lose their place
+    if (chatToggle) {
+        chatToggle.setAttribute('aria-expanded', 'false');
+        chatToggle.focus();
+    }
+
+    setTimeout(() => {
+        chatWindow.style.display = 'none';
+
+        const textBox = chatnest.widget.querySelector('.chat-text-box');
+        if (textBox && chatnest.config.showTextBox && !chatnest._textBoxManuallyClosed) {
+            textBox.style.display = 'block';
+            textBox.style.opacity = '1';
+            textBox.style.transform = 'translateY(0)';
+        }
+
+        chatnest.enableToggleButtonAnimation();
+    }, 300);
+}

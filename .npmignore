@@ -5,12 +5,17 @@ webpack.config.js
 rollup.config.js
 babel.config.js
 jest.config.js
+eslint.config.mjs
+tsconfig.json
+.prettierrc
 
 # Test output & coverage
 coverage/
 .nyc_output/
 junit.xml
 test-results/
+.jest-cache/
+jest_*
 
 # Development HTML
 test.html
@@ -41,6 +46,11 @@ Thumbs.db
 
 # Source maps
 *.map
+
+# Git
+.git/
+.gitignore
+.gitattributes
 
 # Agent skills / local tooling
 skills-lock.json

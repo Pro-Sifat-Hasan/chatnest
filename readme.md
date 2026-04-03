@@ -12,7 +12,7 @@ A lightweight, customizable AI chat widget. Drop it into any website in minutes.
 
 **CDN**
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.2/dist/chatnest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.5/dist/chatnest.min.js"></script>
 ```
 
 **npm**
@@ -28,7 +28,7 @@ import Chatnest from 'chatnest';
 ## Quick Start
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.2/dist/chatnest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.5/dist/chatnest.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     new Chatnest({
@@ -128,7 +128,7 @@ import Chatnest from 'chatnest';
 | `chatBackgroundColor` | `string` | `'#ffffff'` | Chat panel background color |
 | `chatBackgroundImage` | `string` | `null` | CSS background-image for the chat panel |
 | `sendButtonIconSize` | `number` | `24` | Send button icon size in px |
-| `showPrivacyNotice` | `boolean` | `true` | Show a small privacy notice below the input |
+| `showPrivacyNotice` | `boolean` | `false` | Show a small privacy notice below the input |
 | `privacyNoticeText` | `string` | `'Messages may be stored to improve responses.'` | Privacy notice copy |
 
 ### Toggle Button

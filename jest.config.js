@@ -1,18 +1,21 @@
 /** @type {import('jest').Config} */
 module.exports = {
     testEnvironment: 'jest-environment-jsdom',
-    testMatch: ['**/tests/**/*.test.js'],
+    testMatch: ['**/tests/**/*.test.ts'],
     transform: {
-        '^.+\\.m?js$': ['babel-jest', { configFile: './babel.config.js' }],
+        '^.+\\.m?[jt]s$': ['babel-jest', { configFile: './babel.config.js' }],
     },
-    moduleFileExtensions: ['js', 'mjs'],
+    moduleFileExtensions: ['ts', 'js', 'mjs'],
+    moduleNameMapper: {
+        '^(.*)\\.js$': ['$1.ts', '$1.js']
+    },
     collectCoverageFrom: [
-        'src/lib/utils/**/*.js',
-        'src/lib/ChatStorageManager.js',
-        'src/lib/supabase/SupabaseManager.js',
-        'src/lib/chatnest/typing/typeWriter.js',
-        'src/lib/chatnest/storage/loadChatHistory.js',
-        'src/lib/chatnest/api/sendMessage.js',
+        'src/lib/utils/**/*.ts',
+        'src/lib/ChatStorageManager.ts',
+        'src/lib/supabase/SupabaseManager.ts',
+        'src/lib/chatnest/typing/typeWriter.ts',
+        'src/lib/chatnest/storage/loadChatHistory.ts',
+        'src/lib/chatnest/api/sendMessage.ts',
     ],
     coverageReporters: ['text', 'lcov'],
     verbose: true,

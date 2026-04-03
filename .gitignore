@@ -46,3 +46,6 @@ Parlant-ui/
 skills-lock.json
 .cursor/
 .claude/
+
+# TypeScript build info
+*.tsbuildinfo
