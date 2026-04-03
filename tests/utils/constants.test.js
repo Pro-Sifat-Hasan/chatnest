@@ -3,29 +3,7 @@
  * debounce function and togglePositions data structure
  */
 
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => { clearTimeout(timeout); func(...args); };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-const togglePositions = {
-    'bottom-right': {
-        toggle: { bottom: '20px', right: '20px', left: 'auto', transform: 'none' },
-        window: { bottom: '100px', right: '20px', left: 'auto', transform: 'none' }
-    },
-    'bottom-left': {
-        toggle: { bottom: '20px', left: '20px', right: 'auto', transform: 'none' },
-        window: { bottom: '100px', left: '20px', right: 'auto', transform: 'none' }
-    },
-    'bottom-center': {
-        toggle: { bottom: '20px', left: '50%', right: 'auto', transform: 'translateX(-50%)' },
-        window: { bottom: '100px', left: '50%', right: 'auto', transform: 'translateX(-50%)' }
-    }
-};
+const { debounce, togglePositions } = require('../../src/lib/constants.js');
 
 // ── debounce ──────────────────────────────────────────────────────────────────
 

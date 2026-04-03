@@ -50,10 +50,22 @@ export function openChat(chatnest) {
             chatnest._mobileInputSetup = true;
         }
 
-        if (chatInput) {
-            chatInput.style.caretColor = 'transparent';
-            chatInput.classList.remove('mobile-focused');
-        }
+        // Move focus into the dialog for screen readers and keyboard users
+        // (no caretColor hack — let the browser render the caret naturally)
+        setTimeout(() => {
+            if (chatInput) {
+                chatInput.focus({ preventScroll: true });
+            } else {
+                const firstFocusable = chatWindow.querySelector(
+                    'button:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                );
+                if (firstFocusable) firstFocusable.focus({ preventScroll: true });
+            }
+        }, 50);
+
+        // Update toggle ARIA state
+        const chatToggle = chatnest.widget.querySelector('.chat-toggle');
+        if (chatToggle) chatToggle.setAttribute('aria-expanded', 'true');
 
         setTimeout(() => {
             chatnest.scrollToBottom();
@@ -64,6 +76,17 @@ export function openChat(chatnest) {
             setTimeout(() => {
                 chatnest.showHubSpotForm();
             }, 500);
+        }
+
+        // Native form — trigger: 'onOpen'
+        if (
+            chatnest.config.nativeForm?.enabled &&
+            chatnest.config.nativeForm?.trigger === 'onOpen' &&
+            !chatnest.nativeFormManager?.hasSubmitted()
+        ) {
+            setTimeout(() => {
+                chatnest.showNativeForm();
+            }, 400);
         }
     });
 }

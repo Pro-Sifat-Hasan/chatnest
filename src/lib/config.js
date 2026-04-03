@@ -74,6 +74,8 @@ export function initConfig(config) {
             'Here are some product recommendations that might be beneficial for your skin condition:',
             'Now, here are some products that might be helpful:'
         ],
+        // userId: static string | function(userManager)=>string | null (auto)
+        userId: config.userId ?? null,
         apiMethod: config.apiMethod || 'POST',
         apiTimeout: config.apiTimeout || 30000,
         enableBackendHistory: config.enableBackendHistory !== false,
@@ -132,6 +134,27 @@ export function initConfig(config) {
         websiteBottomSpacing: config.websiteBottomSpacing ? Math.max(0, Math.min(100, parseInt(config.websiteBottomSpacing, 10))) : 0,
         textBoxSpacingFromToggle: config.textBoxSpacingFromToggle !== undefined ? Math.max(0, Math.min(30, parseInt(config.textBoxSpacingFromToggle, 10))) : 0,
         textBoxTextColor: config.textBoxTextColor || 'primary',
+        showPrivacyNotice: config.showPrivacyNotice !== false,
+        privacyNoticeText: config.privacyNoticeText || 'Messages may be stored to improve responses.',
+        nativeForm: {
+            enabled: config.nativeForm?.enabled || false,
+            // When to show: 'onOpen' (chat opens) | 'onFirstMessage' (user tries to send)
+            trigger: config.nativeForm?.trigger || 'onOpen',
+            title: config.nativeForm?.title || 'Before we start',
+            subtitle: config.nativeForm?.subtitle || 'Tell us a little about yourself.',
+            submitLabel: config.nativeForm?.submitLabel || 'Start chatting',
+            useEmailAsUserId: config.nativeForm?.useEmailAsUserId !== false,
+            storageKey: config.nativeForm?.storageKey || null, // null → auto-derive from domain
+            // Each field: { name, label, type, required, placeholder, validate? }
+            fields: Array.isArray(config.nativeForm?.fields) && config.nativeForm.fields.length > 0
+                ? config.nativeForm.fields
+                : [
+                    { name: 'fullname', label: 'Full Name', type: 'text',  required: true,  placeholder: 'Your full name' },
+                    { name: 'email',    label: 'Email',     type: 'email', required: true,  placeholder: 'you@example.com' },
+                    { name: 'phone',    label: 'Phone',     type: 'tel',   required: false, placeholder: 'Optional' }
+                ],
+            onSubmit: config.nativeForm?.onSubmit || null  // optional async callback(formData) → bool
+        },
         parlant: {
             enabled: config.parlant?.enabled || false,
             apiBaseUrl: config.parlant?.apiBaseUrl || ''

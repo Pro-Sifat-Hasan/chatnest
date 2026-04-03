@@ -1,68 +1,12 @@
 /**
  * Tests for src/lib/utils/response.js
- * Logic is inlined here because the source uses ESM; tests run in Jest/CJS.
  */
 
-// ── inline the production functions exactly as they appear in source ──────────
-
-function splitResponseByTripleComma(text) {
-    if (!text || typeof text !== 'string') return [''];
-    return text.split(',,,').map(s => s.trim()).filter(Boolean);
-}
-
-function isEmptyResponse(text) {
-    if (text == null) return true;
-    const s = String(text).trim();
-    if (!s) return true;
-    if (s === '{}' || s === '{"response":""}' || s === '{"response": ""}') return true;
-    try {
-        const o = JSON.parse(s);
-        const v = o?.response ?? o?.message ?? o?.text ?? o?.content ?? o?.answer;
-        return v == null || String(v).trim() === '';
-    } catch (_) { return false; }
-}
-
-function extractResponseText(response, config) {
-    const fallback = 'Sorry, there was an error processing the response. Please try again.';
-    try {
-        if (config?.transformResponse) {
-            const transformed = config.transformResponse(response);
-            if (typeof transformed === 'string') {
-                return { text: isEmptyResponse(transformed) ? '' : transformed, products: [] };
-            }
-            if (transformed && typeof transformed === 'object') {
-                const t = transformed.response ?? transformed.message ?? '';
-                return {
-                    text: isEmptyResponse(t) ? '' : (t || transformed.response || transformed.message || ''),
-                    products: transformed.products || []
-                };
-            }
-            return { text: isEmptyResponse(transformed) ? '' : (String(transformed) || ''), products: [] };
-        }
-
-        if (typeof response === 'string') {
-            return { text: isEmptyResponse(response) ? '' : response, products: [] };
-        }
-
-        if (response && typeof response === 'object') {
-            const fmt = config?.apiResponseFormat || {};
-            const text =
-                response.response ??
-                response.message ??
-                response.text ??
-                response.content ??
-                response.answer ??
-                response[fmt.response];
-            const products = response[fmt.products] || response.products || [];
-            if (isEmptyResponse(text)) return { text: '', products };
-            return { text: text || fallback, products };
-        }
-
-        return { text: fallback, products: [] };
-    } catch (err) {
-        return { text: fallback, products: [] };
-    }
-}
+const {
+    splitResponseByTripleComma,
+    isEmptyResponse,
+    extractResponseText,
+} = require('../../src/lib/utils/response.js');
 
 // ── splitResponseByTripleComma ────────────────────────────────────────────────
 

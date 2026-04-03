@@ -2,20 +2,11 @@
  * Tests for src/lib/utils/form.js
  */
 
-function validateFullName(fullname) {
-    const nameRegex = /^[A-Za-z]+\s+[A-Za-z]+(\s+[A-Za-z]+)?$/;
-    return nameRegex.test(String(fullname || '').trim());
-}
-
-function validateEmail(email) {
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return emailRegex.test(String(email || '').trim());
-}
-
-function validatePhoneNumber(phone) {
-    const cleanedPhone = String(phone || '').replace(/\D/g, '');
-    return cleanedPhone.length >= 7 && cleanedPhone.length <= 20;
-}
+const {
+    validateFullName,
+    validateEmail,
+    validatePhoneNumber,
+} = require('../../src/lib/utils/form.js');
 
 // ── validateFullName ──────────────────────────────────────────────────────────
 
@@ -32,8 +23,6 @@ describe('validateFullName', () => {
     test('rejects undefined', () => expect(validateFullName(undefined)).toBe(false));
     test('rejects whitespace only', () => expect(validateFullName('   ')).toBe(false));
     test('trims leading/trailing spaces before validating', () => expect(validateFullName('  John Doe  ')).toBe(true));
-    // The regex uses \s+ which also matches tabs — tab-separated names pass the regex.
-    // This documents the actual behaviour rather than an incorrect expectation.
     test('tab-separated name passes (\\s+ matches tabs per regex spec)', () => expect(validateFullName('John\tDoe')).toBe(true));
 });
 

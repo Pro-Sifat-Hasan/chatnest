@@ -58,9 +58,44 @@ export function setupEventListeners(chatnest) {
 
     // Remove stale global listeners before re-registering (guards against updateConfig re-runs)
     if (chatnest._keydownHandler) document.removeEventListener('keydown', chatnest._keydownHandler);
+
+    // Focus trap helper: returns all focusable elements inside the dialog
+    const getFocusable = () => {
+        const win = chatnest.widget?.querySelector('.chat-window');
+        if (!win) return [];
+        return Array.from(win.querySelectorAll(
+            'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(el => !el.closest('[style*="display: none"]') && !el.closest('[hidden]'));
+    };
+
     chatnest._keydownHandler = (e) => {
-        if (e.key === 'Escape' && chatnest.widget?.querySelector('.chat-window')?.classList.contains('active')) {
+        const win = chatnest.widget?.querySelector('.chat-window');
+        const isOpen = win?.classList.contains('active');
+
+        if (!isOpen) return;
+
+        if (e.key === 'Escape') {
             chatnest.closeChat();
+            return;
+        }
+
+        // Focus trap on Tab
+        if (e.key === 'Tab') {
+            const focusable = getFocusable();
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey) {
+                if (document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
         }
     };
     document.addEventListener('keydown', chatnest._keydownHandler);
@@ -87,6 +122,16 @@ export function setupEventListeners(chatnest) {
 
         if (chatnest.isWaitingForResponse || chatnest.isTypewriterActive) {
             return;
+        }
+
+        // Native form — trigger: 'onFirstMessage'
+        if (
+            chatnest.config.nativeForm?.enabled &&
+            chatnest.config.nativeForm?.trigger === 'onFirstMessage' &&
+            !chatnest.nativeFormManager?.hasSubmitted()
+        ) {
+            chatnest.showNativeForm();
+            return; // block send until form is submitted
         }
 
         if (chatInput) {
@@ -291,19 +336,47 @@ export function setupEventListeners(chatnest) {
                 opacity: 0.5;
                 filter: grayscale(0.3);
             }
-            .chat-input-container.waiting {
-                position: relative;
-            }
-            .chat-input-container.waiting::after {
-                content: 'Waiting for response...';
-                position: absolute;
-                top: -22px;
-                left: 50%;
-                transform: translateX(-50%);
-                font-size: 12px;
+
+            /* Send status badge (Sending… / Failed) */
+            .cn-send-status {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 11px;
                 font-weight: 500;
+                padding: 2px 8px 4px;
                 color: #6b7280;
-                white-space: nowrap;
+                letter-spacing: 0.01em;
+            }
+            .chat-input-container.sending .cn-send-status {
+                color: #6b7280;
+            }
+            .chat-input-container.send-failed .cn-send-status {
+                color: #dc2626;
+            }
+            .cn-send-status-text {
+                flex-shrink: 0;
+            }
+            .cn-retry-btn {
+                background: none;
+                border: 1px solid currentColor;
+                border-radius: 4px;
+                color: inherit;
+                cursor: pointer;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 1px 7px;
+                line-height: 1.4;
+                transition: background 0.15s, color 0.15s;
+            }
+            .cn-retry-btn:hover {
+                background: #dc2626;
+                border-color: #dc2626;
+                color: #fff;
+            }
+            .cn-retry-btn:focus-visible {
+                outline: 2px solid #dc2626;
+                outline-offset: 2px;
             }
         `;
         document.head.appendChild(style);

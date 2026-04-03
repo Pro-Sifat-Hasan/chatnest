@@ -16,5 +16,6 @@ export { disableSendingFunctionality, enableSendingFunctionality, forceEnableInp
 export { makeApiCall, processApiResponse, handleApiError, sendMessage, sendMessageWithFiles, updateUIForSending, resetUIAfterSending, deleteBackendHistory } from './api/index.js';
 export { loadStyles } from './styles/index.js';
 export { showHubSpotForm, setupHubSpotFormHandlers, checkForTriggerWords, removeActiveForm, disableChatFunctionality, enableChatFunctionality, submitToHubSpot, isFormActive } from './hubspot/index.js';
+export { showNativeForm, setupNativeFormHandlers, NativeFormManager } from './nativeForm/index.js';
 export { sendFeedback, saveFeedbackState, restoreFeedbackState } from './feedback/index.js';
 export { updateStorageAfterRegeneration, loadChatHistory } from './storage/index.js';

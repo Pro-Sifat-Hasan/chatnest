@@ -2,8 +2,9 @@
 module.exports = {
     testEnvironment: 'jest-environment-jsdom',
     testMatch: ['**/tests/**/*.test.js'],
-    transform: {},
-    // Allow ESM via commonjs interop — tests use require() for pure-logic extraction
+    transform: {
+        '^.+\\.m?js$': ['babel-jest', { configFile: './babel.config.js' }],
+    },
     moduleFileExtensions: ['js', 'mjs'],
     collectCoverageFrom: [
         'src/lib/utils/**/*.js',

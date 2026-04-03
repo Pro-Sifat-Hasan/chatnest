@@ -3,92 +3,7 @@
  * jsdom provides localStorage and window.location
  */
 
-class ChatUserManager {
-    constructor(config) {
-        this.config = config;
-        this.domain = this.getCurrentDomain();
-        this.path = this.getCurrentPath();
-        this.currentUser = this.generateUserId();
-        this.userSessionId = this.getOrCreateUserSessionId();
-        this.initializeUser();
-        this.formSubmissionsKey = `chatFormSubmissions_${this.domain}`;
-        this.initializeFormSubmissions();
-    }
-    getCurrentDomain() { return window.location.hostname; }
-    getCurrentPath()   { return window.location.pathname; }
-    generateUserId() {
-        const storageKey = this.config.separateSubpageHistory
-            ? `currentChatUser_${this.domain}${this.path}`
-            : `currentChatUser_${this.domain}`;
-        const storedId = localStorage.getItem(storageKey);
-        if (!storedId) {
-            const newId = `user_${this.domain}${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-            localStorage.setItem(storageKey, newId);
-            return newId;
-        }
-        return storedId;
-    }
-    getOrCreateUserSessionId() {
-        const sessionKey = this.config.separateSubpageHistory
-            ? `userSessionId_${this.domain}${this.path}`
-            : `userSessionId_${this.domain}`;
-        let sessionId = localStorage.getItem(sessionKey);
-        if (!sessionId) {
-            sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-            localStorage.setItem(sessionKey, sessionId);
-        }
-        return sessionId;
-    }
-    getHistoryKey() {
-        return this.config.separateSubpageHistory
-            ? `chatHistory_${this.domain}${this.path}`
-            : `chatHistory_${this.domain}`;
-    }
-    initializeUser() {
-        if (!this.config.enableHistory) return;
-        const historyKey = this.getHistoryKey();
-        if (!localStorage.getItem(historyKey)) {
-            localStorage.setItem(historyKey, JSON.stringify([]));
-        }
-    }
-    initializeFormSubmissions() {
-        if (!localStorage.getItem(this.formSubmissionsKey)) {
-            localStorage.setItem(this.formSubmissionsKey, JSON.stringify([]));
-        }
-    }
-    hasSubmittedForm() {
-        const submissions = JSON.parse(localStorage.getItem(this.formSubmissionsKey) || '[]');
-        return submissions.includes(this.currentUser);
-    }
-    hasFormBeenShown() {
-        return localStorage.getItem(`chatFormShown_${this.currentUser}`) === 'true';
-    }
-    markFormAsShown() {
-        localStorage.setItem(`chatFormShown_${this.currentUser}`, 'true');
-    }
-    resetFormShownStatus() {
-        localStorage.removeItem(`chatFormShown_${this.currentUser}`);
-    }
-    recordFormSubmission(formData) {
-        const submissions = JSON.parse(localStorage.getItem(this.formSubmissionsKey) || '[]');
-        if (!submissions.includes(this.currentUser)) {
-            submissions.push(this.currentUser);
-            localStorage.setItem(this.formSubmissionsKey, JSON.stringify(submissions));
-            localStorage.setItem(`chatFormData_${this.currentUser}`, JSON.stringify({ ...formData, submittedAt: new Date().toISOString() }));
-        }
-    }
-    loadUserData() {
-        const historyKey = this.getHistoryKey();
-        return { userId: this.currentUser, domain: this.domain, path: this.path, chatHistory: JSON.parse(localStorage.getItem(historyKey)) || [] };
-    }
-    updateUserIdWithEmail(email) {
-        const storageKey = this.config.separateSubpageHistory
-            ? `currentChatUser_${this.domain}${this.path}`
-            : `currentChatUser_${this.domain}`;
-        localStorage.setItem(storageKey, email);
-        this.currentUser = email;
-    }
-}
+const { ChatUserManager } = require('../../src/lib/ChatUserManager.js');
 
 function makeUM(overrides = {}) {
     return new ChatUserManager({ enableHistory: true, separateSubpageHistory: false, ...overrides });
@@ -114,7 +29,6 @@ describe('ChatUserManager.generateUserId', () => {
     test('uses separate key when separateSubpageHistory=true', () => {
         const um1 = makeUM({ separateSubpageHistory: false });
         const um2 = makeUM({ separateSubpageHistory: true });
-        // Both create new IDs but they're stored under different keys
         const key1 = `currentChatUser_${um1.domain}`;
         const key2 = `currentChatUser_${um2.domain}${um2.path}`;
         expect(localStorage.getItem(key1)).toBeTruthy();
@@ -153,7 +67,6 @@ describe('ChatUserManager.getHistoryKey', () => {
 
     test('does not include path when separateSubpageHistory=false', () => {
         const um = makeUM({ separateSubpageHistory: false });
-        // jsdom path is '/' — key should just be domain-based without duplicate path
         expect(um.getHistoryKey()).toBe(`chatHistory_${um.domain}`);
     });
 });
@@ -168,7 +81,6 @@ describe('ChatUserManager.initializeUser', () => {
     });
 
     test('does not write history when enableHistory=false', () => {
-        // Clear any existing key first
         localStorage.clear();
         const um = makeUM({ enableHistory: false });
         expect(localStorage.getItem(um.getHistoryKey())).toBeNull();

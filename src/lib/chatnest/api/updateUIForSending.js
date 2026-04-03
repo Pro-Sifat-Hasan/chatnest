@@ -13,4 +13,20 @@ export function updateUIForSending(chatnest, typingIndicator, chatInput) {
     setTimeout(() => chatnest.startJavaScriptTypingAnimation(), 100);
     chatnest.isWaitingForResponse = true;
     chatnest.disableSendingFunctionality();
+
+    // Show "Sending…" status badge on the input container
+    const container = chatnest.widget?.querySelector('.chat-input-container');
+    if (container) {
+        container.classList.add('sending');
+        container.classList.remove('send-failed');
+        let badge = container.querySelector('.cn-send-status');
+        if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'cn-send-status';
+            container.appendChild(badge);
+        }
+        badge.textContent = 'Sending…';
+        badge.setAttribute('role', 'status');
+        badge.setAttribute('aria-live', 'polite');
+    }
 }

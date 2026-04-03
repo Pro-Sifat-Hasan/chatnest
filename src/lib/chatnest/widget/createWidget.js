@@ -53,8 +53,8 @@ export function createWidget(chatnest) {
         <div class="chat-text-box" style="position: fixed;">
             <div class="chat-text-box-content">
                 ${chatnest.config.showTextBoxCloseButton ? `
-                    <button class="chat-text-box-close">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <button type="button" class="chat-text-box-close" aria-label="Dismiss message">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                         </svg>
                     </button>
@@ -78,27 +78,27 @@ export function createWidget(chatnest) {
         : `<div class="typing-spinner" aria-hidden="true"></div>`;
 
     const chatWindowHtml = `
-        <div class="chat-window" role="dialog" aria-modal="true" aria-label="Chat with ${chatnest.config.botName}" style="position: fixed; ${windowStyle}">
+        <div class="chat-window" role="dialog" aria-modal="true" aria-labelledby="chat-dialog-title" style="position: fixed; ${windowStyle}">
             <div class="chat-header">
                 <div class="chat-header-title">
                     <div class="chat-header-avatar">
                         <img src="${chatnest.config.botImage}" alt="${chatnest.config.botName}" class="bot-avatar">
                     </div>
                     <div class="chat-header-text">
-                        <h2 style="font-weight: bold; font-size: 20px; margin: 0;">${chatnest.config.botName}</h2>
+                        <h2 id="chat-dialog-title" style="font-weight: bold; font-size: 20px; margin: 0;">${chatnest.config.botName}</h2>
                         ${chatnest.config.showBotSubname && chatnest.config.botSubname ? `<div class="chat-header-subname">${chatnest.config.botSubname}</div>` : ''}
                     </div>
                 </div>
                 <div class="chat-header-actions">
                     ${chatnest.config.enableDeleteButton ? `
-                    <button class="erase-chat" title="Clear chat history" aria-label="Clear chat history">
+                    <button type="button" class="erase-chat" aria-label="Clear chat history">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="20" height="20" aria-hidden="true">
                             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                         </svg>
                     </button>
                     ` : ''}
-                    <button class="close-chat">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E" alt="Close" title="Close chat">
+                    <button type="button" class="close-chat" aria-label="Close chat">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E" alt="" aria-hidden="true">
                     </button>
                 </div>
             </div>
@@ -129,16 +129,22 @@ export function createWidget(chatnest) {
                     <textarea class="chat-textarea" rows="1" placeholder="${chatnest.config.placeholder}" aria-label="Chat input"></textarea>
                     ${chatnest.config.enableFileUpload ? `
                     <input type="file" class="file-input" ${chatnest.config.maxFiles !== 1 ? 'multiple' : ''} accept="${chatnest.config.fileAccept}" style="display: none;">
-                    <button class="file-button" title="${chatnest.config.maxFiles === 1 ? 'Attach image' : 'Attach files'}">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z'/%3E%3C/svg%3E" alt="Attach">
+                    <button type="button" class="file-button" aria-label="${chatnest.config.maxFiles === 1 ? 'Attach image' : 'Attach files'}">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z'/%3E%3C/svg%3E" alt="" aria-hidden="true">
                     </button>
                     ` : ''}
-                    <button class="send-button">
-                        <img src="${generateSendIcon()}" alt="Send">
+                    <button type="button" class="send-button" aria-label="Send message">
+                        <img src="${generateSendIcon()}" alt="" aria-hidden="true">
                     </button>
                 </div>
                 ${chatnest.config.enableFileUpload ? '<div class="file-preview" style="display: none;"></div>' : ''}
             </div>
+            ${chatnest.config.showPrivacyNotice ? `
+                <div class="chat-privacy-notice" role="note">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" width="11" height="11" style="flex-shrink:0;margin-top:1px"><path d="M8 1a4 4 0 0 0-4 4v1H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm-2 5V5a2 2 0 1 1 4 0v1H6z"/></svg>
+                    ${chatnest.config.privacyNoticeText}
+                </div>
+            ` : ''}
             ${chatnest.config.showBranding ? `
                 <div class="chat-branding">
                     Powered by <a href="${chatnest.config.brandingUrl}" target="_blank" rel="noopener noreferrer"><strong>${chatnest.config.brandingText.replace(/^Powered by\s*/i, '')}</strong></a>

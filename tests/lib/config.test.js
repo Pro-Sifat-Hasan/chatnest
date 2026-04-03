@@ -1,137 +1,54 @@
 /**
  * Tests for src/lib/config.js
- * clampDimension, clampFontSize, formatApiEndpoint, initConfig
+ * clampDimension and clampFontSize are private helpers tested indirectly via initConfig.
+ * formatApiEndpoint is also private — tested indirectly.
  */
 
-// ── Inline helpers (private in source) ───────────────────────────────────────
+const { initConfig } = require('../../src/lib/config.js');
 
-function clampDimension(value, min, max) {
-    const numValue = parseInt(value, 10);
-    return `${Math.min(Math.max(numValue || 0, min), max)}px`;
-}
+// ── clampDimension (via initConfig width/height) ──────────────────────────────
 
-function clampFontSize(size) {
-    let numSize;
-    if (typeof size === 'string') {
-        numSize = parseInt(size.replace('px', ''), 10);
-    } else if (typeof size === 'number') {
-        numSize = size;
-    } else {
-        numSize = 14;
-    }
-    const clampedSize = Math.min(Math.max(14, numSize), 25);
-    return `${clampedSize}px`;
-}
-
-// formatApiEndpoint uses window.location — stub it in jsdom
-function formatApiEndpoint(endpoint) {
-    if (!endpoint) return 'http://localhost:7000/chat';
-    if (endpoint.startsWith('//')) return `${window.location.protocol}${endpoint}`;
-    if (endpoint.startsWith('/')) return `${window.location.origin}${endpoint}`;
-    if (!endpoint.startsWith('http')) return `http://${endpoint}`;
-    return endpoint;
-}
-
-// Inline initConfig with the same logic
-function initConfig(config) {
-    const apiEndpoint = formatApiEndpoint(config.apiEndpoint);
-    return {
-        botName: config.botName || 'Chat Assistant',
-        greeting: config.greeting || 'Hello! How can I help you today?',
-        placeholder: config.placeholder || 'Type your message here...',
-        primaryColor: config.primaryColor || '#0084ff',
-        fontSize: clampFontSize(config.fontSize || 14),
-        width: clampDimension(config.width || '400px', 300, 600),
-        height: clampDimension(config.height || '600px', 400, 800),
-        showTimestamp: config.showTimestamp || false,
-        enableHistory: config.enableHistory !== false,
-        maxHistoryLength: config.maxHistoryLength || 100,
-        enableTypewriter: config.enableTypewriter !== false,
-        enableMarkdown: config.enableMarkdown !== false,
-        apiEndpoint,
-        apiKey: config.apiKey || '',
-        apiMethod: config.apiMethod || 'POST',
-        apiTimeout: config.apiTimeout || 30000,
-        position: config.position || 'bottom-right',
-        theme: config.theme || 'light',
-        chips: config.chips || [],
-        enableFileUpload: config.enableFileUpload !== false,
-        useMultipartFormData: config.useMultipartFormData !== false,
-        apiDataFormat: config.apiDataFormat || 'json',
-        separateSubpageHistory: config.separateSubpageHistory || false,
-        hubspot: {
-            enabled: config.hubspot?.enabled || false,
-            triggerKeywords: config.hubspot?.triggerKeywords || ['pricing', 'demo', 'contact', 'quote', 'help', 'support'],
-        },
-        parlant: {
-            enabled: config.parlant?.enabled || false,
-            apiBaseUrl: config.parlant?.apiBaseUrl || ''
-        },
-        supabase: {
-            enabled: config.supabase?.enabled || false,
-            url: config.supabase?.url || '',
-            anonKey: config.supabase?.anonKey || '',
-            tableName: config.supabase?.tableName || 'chat_history',
-            historyLimit: config.supabase?.historyLimit || 50,
-            pollIntervalMs: config.supabase?.pollIntervalMs ?? 5000
-        },
-        deleteEndpoint: config.deleteEndpoint
-            ? formatApiEndpoint(config.deleteEndpoint)
-            : `${apiEndpoint.replace(/\/chat$/, '')}/delete-history`,
-        toggleButtonAnimation: config.toggleButtonAnimation !== undefined
-            ? Math.max(0, Math.min(5, parseInt(config.toggleButtonAnimation, 10) || 0))
-            : 4,
-        toggleButtonSize: config.toggleButtonSize
-            ? Math.max(40, Math.min(80, parseInt(config.toggleButtonSize, 10)))
-            : 60,
-    };
-}
-
-// ── clampDimension ────────────────────────────────────────────────────────────
-
-describe('clampDimension', () => {
-    test('returns value within range', () => expect(clampDimension('400px', 300, 600)).toBe('400px'));
-    test('clamps below min', () => expect(clampDimension('200px', 300, 600)).toBe('300px'));
-    test('clamps above max', () => expect(clampDimension('800px', 300, 600)).toBe('600px'));
-    test('accepts number string without px', () => expect(clampDimension('500', 300, 600)).toBe('500px'));
-    test('clamps zero to min', () => expect(clampDimension('0', 300, 600)).toBe('300px'));
-    test('handles exact min', () => expect(clampDimension('300px', 300, 600)).toBe('300px'));
-    test('handles exact max', () => expect(clampDimension('600px', 300, 600)).toBe('600px'));
+describe('clampDimension (via initConfig)', () => {
+    test('returns value within range', () => expect(initConfig({ width: '400px' }).width).toBe('400px'));
+    test('clamps below min', () => expect(initConfig({ width: '200px' }).width).toBe('300px'));
+    test('clamps above max', () => expect(initConfig({ width: '800px' }).width).toBe('600px'));
+    test('accepts number string without px', () => expect(initConfig({ width: '500' }).width).toBe('500px'));
+    test('clamps zero to min', () => expect(initConfig({ width: '0' }).width).toBe('300px'));
+    test('handles exact min', () => expect(initConfig({ width: '300px' }).width).toBe('300px'));
+    test('handles exact max', () => expect(initConfig({ width: '600px' }).width).toBe('600px'));
     test('handles non-numeric gracefully (defaults to 0 → clamps to min)', () => {
-        expect(clampDimension('abc', 300, 600)).toBe('300px');
+        expect(initConfig({ width: 'abc' }).width).toBe('300px');
     });
 });
 
-// ── clampFontSize ─────────────────────────────────────────────────────────────
+// ── clampFontSize (via initConfig fontSize) ───────────────────────────────────
 
-describe('clampFontSize', () => {
-    test('returns 14px for 14', () => expect(clampFontSize(14)).toBe('14px'));
-    test('returns 25px for 25', () => expect(clampFontSize(25)).toBe('25px'));
-    test('returns 18px for "18px" string', () => expect(clampFontSize('18px')).toBe('18px'));
-    test('clamps below 14 to 14px', () => expect(clampFontSize(10)).toBe('14px'));
-    test('clamps above 25 to 25px', () => expect(clampFontSize(30)).toBe('25px'));
-    test('defaults to 14px for non-numeric type', () => expect(clampFontSize(null)).toBe('14px'));
-    test('defaults to 14px for boolean', () => expect(clampFontSize(true)).toBe('14px'));
-    test('accepts number as string', () => expect(clampFontSize('20')).toBe('20px'));
-    test('clamps string too-small', () => expect(clampFontSize('10px')).toBe('14px'));
-    test('clamps string too-large', () => expect(clampFontSize('30px')).toBe('25px'));
+describe('clampFontSize (via initConfig)', () => {
+    test('returns 14px for 14', () => expect(initConfig({ fontSize: 14 }).fontSize).toBe('14px'));
+    test('returns 25px for 25', () => expect(initConfig({ fontSize: 25 }).fontSize).toBe('25px'));
+    test('returns 18px for "18px" string', () => expect(initConfig({ fontSize: '18px' }).fontSize).toBe('18px'));
+    test('clamps below 14 to 14px', () => expect(initConfig({ fontSize: 10 }).fontSize).toBe('14px'));
+    test('clamps above 25 to 25px', () => expect(initConfig({ fontSize: 30 }).fontSize).toBe('25px'));
+    test('defaults to 14px for non-numeric type', () => expect(initConfig({ fontSize: null }).fontSize).toBe('14px'));
+    test('accepts number as string', () => expect(initConfig({ fontSize: '20' }).fontSize).toBe('20px'));
+    test('clamps string too-small', () => expect(initConfig({ fontSize: '10px' }).fontSize).toBe('14px'));
+    test('clamps string too-large', () => expect(initConfig({ fontSize: '30px' }).fontSize).toBe('25px'));
 });
 
-// ── formatApiEndpoint ─────────────────────────────────────────────────────────
+// ── formatApiEndpoint (via initConfig apiEndpoint) ────────────────────────────
 
-describe('formatApiEndpoint', () => {
-    test('returns default for null', () => expect(formatApiEndpoint(null)).toBe('http://localhost:7000/chat'));
-    test('returns default for empty string', () => expect(formatApiEndpoint('')).toBe('http://localhost:7000/chat'));
-    test('returns default for undefined', () => expect(formatApiEndpoint(undefined)).toBe('http://localhost:7000/chat'));
-    test('returns full URL unchanged', () => expect(formatApiEndpoint('https://api.example.com/chat')).toBe('https://api.example.com/chat'));
-    test('returns http URL unchanged', () => expect(formatApiEndpoint('http://localhost:3000/chat')).toBe('http://localhost:3000/chat'));
-    test('prepends http:// for bare hostname', () => expect(formatApiEndpoint('myapi.com/chat')).toBe('http://myapi.com/chat'));
+describe('formatApiEndpoint (via initConfig)', () => {
+    test('returns default for null', () => expect(initConfig({ apiEndpoint: null }).apiEndpoint).toBe('http://localhost:7000/chat'));
+    test('returns default for empty string', () => expect(initConfig({ apiEndpoint: '' }).apiEndpoint).toBe('http://localhost:7000/chat'));
+    test('returns default for undefined', () => expect(initConfig({}).apiEndpoint).toBe('http://localhost:7000/chat'));
+    test('returns full URL unchanged', () => expect(initConfig({ apiEndpoint: 'https://api.example.com/chat' }).apiEndpoint).toBe('https://api.example.com/chat'));
+    test('returns http URL unchanged', () => expect(initConfig({ apiEndpoint: 'http://localhost:3000/chat' }).apiEndpoint).toBe('http://localhost:3000/chat'));
+    test('prepends http:// for bare hostname', () => expect(initConfig({ apiEndpoint: 'myapi.com/chat' }).apiEndpoint).toBe('http://myapi.com/chat'));
     test('prepends origin for path starting with /', () => {
-        // jsdom sets window.location.origin to 'http://localhost'
-        expect(formatApiEndpoint('/api/chat')).toBe('http://localhost/api/chat');
+        expect(initConfig({ apiEndpoint: '/api/chat' }).apiEndpoint).toBe('http://localhost/api/chat');
     });
     test('prepends protocol for //-prefixed URL', () => {
-        expect(formatApiEndpoint('//api.example.com/chat')).toMatch(/^https?:\/\/api\.example\.com\/chat/);
+        expect(initConfig({ apiEndpoint: '//api.example.com/chat' }).apiEndpoint).toMatch(/^https?:\/\/api\.example\.com\/chat/);
     });
 });
 

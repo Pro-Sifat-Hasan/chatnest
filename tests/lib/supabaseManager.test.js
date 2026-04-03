@@ -3,134 +3,7 @@
  * All Supabase client calls are mocked — no real network access.
  */
 
-// ── Inline SupabaseManager ────────────────────────────────────────────────────
-
-class SupabaseManager {
-    constructor(config) {
-        this.url = config.url || '';
-        this.anonKey = config.anonKey || '';
-        this.tableName = config.tableName || 'chat_history';
-        this.historyLimit = config.historyLimit || 50;
-        this.pollIntervalMs = config.pollIntervalMs ?? 5000;
-        this.client = null;
-        this.initialized = false;
-        this._ourInsertedIds = new Set();
-        this._lastSeenId = -1;
-        this._pollTimer = null;
-        this._pollCallback = null;
-        this._backgroundRefreshTimer = null;
-        this._realtimeChannel = null;
-    }
-    async initialize() {
-        if (!this.url || !this.anonKey) return;
-        try {
-            if (!globalThis.supabase?.createClient) throw new Error('no supabase');
-            this.client = globalThis.supabase.createClient(this.url, this.anonKey);
-            this.initialized = true;
-        } catch (err) { /* silent */ }
-    }
-    async getChatHistory(userId, domain) {
-        if (!this.initialized || !this.client) return [];
-        try {
-            const { data, error } = await this.client
-                .from(this.tableName)
-                .select('id, user_id, domain, query, response, timestamp')
-                .eq('user_id', userId).eq('domain', domain)
-                .order('timestamp', { ascending: true })
-                .limit(this.historyLimit);
-            if (error) throw error;
-            return data || [];
-        } catch (err) { return []; }
-    }
-    async saveChatPair(userId, domain, query, response) {
-        if (!this.initialized || !this.client) return null;
-        try {
-            const { data, error } = await this.client
-                .from(this.tableName)
-                .insert({ user_id: userId, domain, query, response, timestamp: new Date().toISOString() })
-                .select('id').single();
-            if (error) throw error;
-            if (data?.id) this._ourInsertedIds.add(data.id);
-            return data?.id ?? true;
-        } catch (err) { return null; }
-    }
-    setLastSeenFromRows(rows) {
-        if (!rows?.length) return;
-        const maxId = Math.max(...rows.map(r => r.id ?? 0));
-        if (maxId > this._lastSeenId) this._lastSeenId = maxId;
-    }
-    startRealtimeSync(userId, domain, onNewRow) {
-        this.stopRealtimeSync();
-        this._pollCallback = onNewRow;
-        const poll = async () => {
-            if (!this.initialized || !this.client) return;
-            try {
-                const { data, error } = await this.client
-                    .from(this.tableName).select('id, query, response, timestamp')
-                    .eq('user_id', userId).eq('domain', domain)
-                    .gt('id', this._lastSeenId).order('id', { ascending: true });
-                if (error) throw error;
-                for (const row of (data || [])) {
-                    if (this._ourInsertedIds.has(row.id)) continue;
-                    this._lastSeenId = row.id;
-                    this._pollCallback?.(row);
-                }
-            } catch (err) { /* silent */ }
-        };
-        this._pollTimer = setInterval(poll, this.pollIntervalMs);
-    }
-    stopRealtimeSync() {
-        if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
-        this._pollCallback = null;
-    }
-    startBackgroundRefresh(intervalMs, onRefresh) {
-        this.stopBackgroundRefresh();
-        const ms = intervalMs ?? this.pollIntervalMs;
-        const run = () => {
-            if (!this.initialized || !this.client) return;
-            onRefresh().catch(() => {});
-        };
-        this._backgroundRefreshTimer = setInterval(run, ms);
-    }
-    stopBackgroundRefresh() {
-        if (this._backgroundRefreshTimer) { clearInterval(this._backgroundRefreshTimer); this._backgroundRefreshTimer = null; }
-    }
-    _splitParts(text) {
-        if (!text || typeof text !== 'string') return [''];
-        return String(text).split(',,,').map(s => s.trim()).filter(Boolean);
-    }
-    rowsToMessages(rows) {
-        const messages = [];
-        for (const row of rows) {
-            const ts = row.timestamp || new Date().toISOString();
-            const rowId = row.id;
-            messages.push({ sender: 'user', message: row.query, timestamp: ts, rowId, partKey: rowId != null ? `sb-${rowId}-u` : null });
-            const parts = this._splitParts(row.response);
-            parts.forEach((part, i) => {
-                const isLast = i === parts.length - 1;
-                messages.push({ sender: 'bot', message: part, timestamp: ts, skipMessageActions: !isLast, rowId, partKey: rowId != null ? `sb-${rowId}-b${i}` : null });
-            });
-        }
-        return messages;
-    }
-    get isReady() { return this.initialized && !!this.client; }
-}
-
-// ── Mock Supabase client factory ──────────────────────────────────────────────
-
-function makeMockClient(overrides = {}) {
-    const chainable = (returnVal) => {
-        const obj = { _returnVal: returnVal };
-        ['from', 'select', 'eq', 'order', 'limit', 'gt', 'insert', 'single'].forEach(m => {
-            obj[m] = jest.fn(() => (m === 'single' || m === 'limit') ? Promise.resolve(obj._returnVal) : obj);
-        });
-        return obj;
-    };
-    return {
-        ...chainable(overrides.defaultReturn || { data: [], error: null }),
-        ...overrides,
-    };
-}
+const { SupabaseManager } = require('../../src/lib/supabase/SupabaseManager.js');
 
 // ── isReady ───────────────────────────────────────────────────────────────────
 
@@ -142,11 +15,11 @@ describe('SupabaseManager.isReady', () => {
 
     test('true after successful initialization', async () => {
         const mockClient = {};
-        globalThis.supabase = { createClient: () => mockClient };
+        window.supabase = { createClient: () => mockClient };
         const sm = new SupabaseManager({ url: 'https://x.co', anonKey: 'key' });
         await sm.initialize();
         expect(sm.isReady).toBe(true);
-        delete globalThis.supabase;
+        delete window.supabase;
     });
 
     test('false when url is missing', async () => {
@@ -327,7 +200,7 @@ describe('SupabaseManager.rowsToMessages', () => {
     test('splits multi-part bot response by ,,,', () => {
         const rows = [{ id: 2, query: 'Q', response: 'Part1,,,Part2', timestamp: '2024-01-01T00:00:00Z' }];
         const msgs = sm.rowsToMessages(rows);
-        expect(msgs).toHaveLength(3); // 1 user + 2 bot parts
+        expect(msgs).toHaveLength(3);
         expect(msgs[1].message).toBe('Part1');
         expect(msgs[1].skipMessageActions).toBe(true);
         expect(msgs[2].message).toBe('Part2');
@@ -397,7 +270,6 @@ describe('SupabaseManager startBackgroundRefresh / stopBackgroundRefresh', () =>
 
     test('does not call onRefresh when not initialized', () => {
         const sm = new SupabaseManager({ url: 'u', anonKey: 'k', pollIntervalMs: 500 });
-        // initialized = false, client = null
         const onRefresh = jest.fn().mockResolvedValue();
         sm.startBackgroundRefresh(500, onRefresh);
         jest.advanceTimersByTime(500);
@@ -415,7 +287,6 @@ describe('SupabaseManager _ourInsertedIds deduplication', () => {
         sm._ourInsertedIds.add(99);
 
         const onNewRow = jest.fn();
-        // Simulate what the realtime subscription callback checks
         const row = { id: 99, query: 'Q', response: 'R', timestamp: '' };
         if (!sm._ourInsertedIds.has(row.id)) onNewRow(row);
 
@@ -425,7 +296,6 @@ describe('SupabaseManager _ourInsertedIds deduplication', () => {
     test('calls onNewRow for rows not in _ourInsertedIds', () => {
         const sm = new SupabaseManager({ url: 'u', anonKey: 'k' });
         sm.initialized = true;
-        // id 99 not inserted by us
 
         const onNewRow = jest.fn();
         const row = { id: 99, query: 'Q', response: 'R', timestamp: '' };

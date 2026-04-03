@@ -23,7 +23,17 @@ Thumbs.db
 .env.local
 .env.development.local
 .env.test.local
-.env.production.local 
+.env.production.local
+
+# Test output & coverage
+coverage/
+.nyc_output/
+junit.xml
+test-results/
+
+# Jest cache
+.jest-cache/
+jest_*
 
 # Test files
 test.html
@@ -32,7 +42,7 @@ demo.html
 # unnecessary files
 Parlant-ui/
 
-#  Agent skills
+# Agent skills
 skills-lock.json
 .cursor/
 .claude/

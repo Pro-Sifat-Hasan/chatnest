@@ -4,23 +4,7 @@
  * (loadScript requires real DOM and is not pure — covered via integration)
  */
 
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-function isMobileBrowser() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = String(str ?? '');
-    return div.innerHTML;
-}
+const { formatFileSize, isMobileBrowser, escapeHtml } = require('../../src/lib/utils/dom.js');
 
 // ── formatFileSize ────────────────────────────────────────────────────────────
 
@@ -101,7 +85,6 @@ describe('escapeHtml', () => {
     });
 
     test('does not encode double quotes (textContent/innerHTML does not encode them)', () => {
-        // div.textContent = '"quoted"' → innerHTML = '"quoted"' (browsers don't encode " in text nodes)
         expect(escapeHtml('"quoted"')).toBe('"quoted"');
     });
 

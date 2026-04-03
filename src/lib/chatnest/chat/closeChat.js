@@ -14,7 +14,7 @@ export function closeChat(chatnest) {
     if (chatInput) {
         chatInput.classList.remove('cursor-active', 'mobile-focused');
         chatInput.blur();
-        chatInput.style.caretColor = 'transparent';
+        chatInput.style.caretColor = '';
 
         if (chatnest._mobileInputCleanup) {
             chatnest._mobileInputCleanup();
@@ -40,7 +40,9 @@ export function closeChat(chatnest) {
     chatWindow.classList.remove('active');
     chatnest.updateToggleIcon(false);
 
+    // Return focus to toggle so keyboard/AT users don't lose their place
     if (chatToggle) {
+        chatToggle.setAttribute('aria-expanded', 'false');
         chatToggle.focus();
     }
 

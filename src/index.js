@@ -74,6 +74,9 @@ import {
     enableChatFunctionality,
     submitToHubSpot as submitToHubSpotImpl,
     isFormActive as isFormActiveImpl,
+    showNativeForm as showNativeFormImpl,
+    setupNativeFormHandlers as setupNativeFormHandlersImpl,
+    NativeFormManager,
     sendFeedback as sendFeedbackImpl,
     saveFeedbackState as saveFeedbackStateImpl,
     restoreFeedbackState as restoreFeedbackStateImpl,
@@ -92,6 +95,10 @@ class Chatnest {
         this.isGradient = isGradient;
         this.userManager = new ChatUserManager(this.config);
         this.storageManager = new ChatStorageManager(this.userManager, this.config);
+        this.nativeFormManager = new NativeFormManager(
+            this.userManager.domain,
+            this.config.nativeForm
+        );
         this.parlant = null;
         this.supabaseManager = null;
         this._lastSupabaseUserMessage = null;
@@ -508,6 +515,15 @@ class Chatnest {
 
     removeActiveForm() {
         removeActiveForm(this);
+    }
+
+    // ── Native form ───────────────────────────────────────────────────────────
+    showNativeForm() {
+        showNativeFormImpl(this);
+    }
+
+    setupNativeFormHandlers(form, overlay) {
+        setupNativeFormHandlersImpl(this, form, overlay);
     }
 }
 

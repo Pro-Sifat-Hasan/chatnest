@@ -12,7 +12,7 @@ A lightweight, customizable AI chat widget. Drop it into any website in minutes.
 
 **CDN**
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.1/dist/chatnest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.2/dist/chatnest.min.js"></script>
 ```
 
 **npm**
@@ -28,7 +28,7 @@ import Chatnest from 'chatnest';
 ## Quick Start
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.1/dist/chatnest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chatnest@3.4.2/dist/chatnest.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     new Chatnest({
@@ -74,6 +74,7 @@ import Chatnest from 'chatnest';
 | `apiResponseFormat` | `object` | `{ response, products, productItem }` | Map response field names from your API |
 | `apiDataFormat` | `string` | `'json'` | `'json'` or `'form-data'` |
 | `useMultipartFormData` | `boolean` | `true` | Use multipart encoding for file uploads |
+| `userId` | `string\|function\|null` | `null` | Override the `user_id` sent on every API call. Pass a static string, a function `(userManager) => string`, or `null` to use the auto-generated ID. If `nativeForm.useEmailAsUserId` is `true` the submitted email takes over automatically after form submission. |
 | `transformResponse` | `function` | `null` | Transform the raw API response before display |
 | `productInjectionMarker` | `string\|array` | see below | Text marker(s) after which the product carousel is inserted |
 
@@ -127,6 +128,8 @@ import Chatnest from 'chatnest';
 | `chatBackgroundColor` | `string` | `'#ffffff'` | Chat panel background color |
 | `chatBackgroundImage` | `string` | `null` | CSS background-image for the chat panel |
 | `sendButtonIconSize` | `number` | `24` | Send button icon size in px |
+| `showPrivacyNotice` | `boolean` | `true` | Show a small privacy notice below the input |
+| `privacyNoticeText` | `string` | `'Messages may be stored to improve responses.'` | Privacy notice copy |
 
 ### Toggle Button
 
@@ -152,6 +155,40 @@ The small speech-bubble pop-up that appears above the toggle button before the c
 | `textBoxTextColor` | `string` | `'primary'` | `'primary'` (uses `primaryColor`), `'default'`, or any hex |
 | `textBoxSpacingFromToggle` | `number` | `0` | Gap between the pop-up and toggle button in px |
 
+### Native Lead Form
+
+A fully built-in, no-dependency lead-capture form. Fields, labels, and validation are all customisable. Data is saved to `localStorage` and, optionally, the submitted email is used as the API `user_id` from that point on.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `nativeForm.enabled` | `boolean` | `false` | Enable the native form |
+| `nativeForm.trigger` | `string` | `'onOpen'` | When to show — `'onOpen'` (chat opens) or `'onFirstMessage'` (first send attempt) |
+| `nativeForm.title` | `string` | `'Before we start'` | Modal heading |
+| `nativeForm.subtitle` | `string` | `'Tell us a little about yourself.'` | Modal sub-heading |
+| `nativeForm.submitLabel` | `string` | `'Start chatting'` | Submit button label |
+| `nativeForm.useEmailAsUserId` | `boolean` | `true` | After submission, set the email field value as the persistent API `user_id` |
+| `nativeForm.storageKey` | `string\|null` | `null` | localStorage key prefix. `null` → auto (`cnf_<hostname>`) |
+| `nativeForm.fields` | `array` | name + email + phone | Array of field descriptors — see table below |
+| `nativeForm.onSubmit` | `async function\|null` | `null` | Optional async callback `(formData) => void\|false`. Return `false` to block submission. |
+
+**Field descriptor shape**
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | `string` | yes | Field key, also used as the `localStorage` data property |
+| `label` | `string` | yes | Label shown above the input |
+| `type` | `string` | no | HTML input type — `'text'` `'email'` `'tel'` `'number'` etc. Default `'text'` |
+| `required` | `boolean` | no | Mark field as required. Default `false` |
+| `placeholder` | `string` | no | Input placeholder text |
+| `validate` | `function` | no | Custom validator `(value: string) => errorMessage \| ''`. Overrides built-in type checks. |
+
+**localStorage keys written on submit**
+
+| Key | Value |
+|-----|-------|
+| `cnf_<hostname>_submitted` | `"true"` |
+| `cnf_<hostname>_data` | JSON — all field values + `submittedAt` ISO timestamp |
+
 ### HubSpot Lead Form
 
 Displays a lead-capture form before or during chat. Requires HubSpot portal credentials.
@@ -163,7 +200,7 @@ Displays a lead-capture form before or during chat. Requires HubSpot portal cred
 | `hubspot.formGuid` | `string` | `''` | HubSpot form GUID |
 | `hubspot.triggerKeywords` | `array` | `['pricing','demo','contact','quote','help','support']` | Keywords that trigger the form |
 | `showFormOnStart` | `boolean` | `true` | Show form when chat opens for new users |
-| `useEmailAsUserId` | `boolean` | `true` | Use submitted email as the persistent user ID |
+| `useEmailAsUserId` | `boolean` | `true` | Use submitted email as the persistent user ID (HubSpot form only) |
 | `formTitle` | `string` | `'Give Your Details'` | Form modal title |
 | `formSubtitle` | `string` | `'Please provide your information to start chatting.'` | Form modal subtitle |
 
@@ -194,6 +231,108 @@ Persist chat history in Supabase so sessions survive across devices and browsers
 | `onInit` | `function` | Called when the widget is ready |
 | `onMessage` | `function` | Called on every message send / receive |
 | `onError` | `function` | Called on API errors |
+
+---
+
+## Native Lead Form
+
+Capture user details before or during chat — no HubSpot account needed. All data stays in the user's browser.
+
+### Minimal setup
+
+```js
+new Chatnest({
+  apiEndpoint: 'https://your-api.com/chat',
+  nativeForm: {
+    enabled: true
+  }
+});
+```
+
+Shows a name + email + phone form when the chat opens. After submission the email becomes the persistent `user_id` on every API request.
+
+### Custom fields
+
+```js
+new Chatnest({
+  apiEndpoint: 'https://your-api.com/chat',
+  nativeForm: {
+    enabled:     true,
+    trigger:     'onFirstMessage',   // intercept first send attempt
+    title:       'Quick intro',
+    subtitle:    'We use this to personalise your experience.',
+    submitLabel: 'Let\'s go',
+    fields: [
+      { name: 'fullname', label: 'Your name',    type: 'text',  required: true  },
+      { name: 'email',    label: 'Work email',   type: 'email', required: true  },
+      { name: 'company',  label: 'Company',      type: 'text',  required: false,
+        validate: (v) => v.length >= 2 ? '' : 'Enter your company name.' }
+    ]
+  }
+});
+```
+
+### Custom submit hook
+
+```js
+new Chatnest({
+  nativeForm: {
+    enabled: true,
+    onSubmit: async (formData) => {
+      // formData = { fullname, email, company, submittedAt }
+      const res = await fetch('/api/leads', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(formData)
+      });
+      if (!res.ok) return false; // returning false shows an error and keeps the form open
+    }
+  }
+});
+```
+
+### Reading stored data in your own code
+
+```js
+// Check if the user already submitted
+const submitted = localStorage.getItem('cnf_yourdomain.com_submitted') === 'true';
+
+// Read field values
+const data = JSON.parse(localStorage.getItem('cnf_yourdomain.com_data') || 'null');
+// { fullname: 'Jane Doe', email: 'jane@co.com', submittedAt: '2025-04-03T...' }
+```
+
+---
+
+## User ID Control
+
+By default ChatNest auto-generates a random `user_id` per browser and persists it in `localStorage`. You can override this at any level of precision:
+
+```js
+// 1. Static — same ID for every visitor (useful for authenticated apps)
+new Chatnest({ userId: 'user_42' });
+
+// 2. Dynamic — evaluated on every API request
+new Chatnest({
+  userId: (userManager) => {
+    // userManager.currentUser is the auto-generated or email-derived ID
+    return window.__myApp?.loggedInUserId || userManager.currentUser;
+  }
+});
+
+// 3. Email from nativeForm — no extra config needed
+//    When nativeForm.useEmailAsUserId is true (the default),
+//    the email the user submits automatically becomes userManager.currentUser
+//    and is used on all subsequent requests.
+new Chatnest({
+  nativeForm: { enabled: true, useEmailAsUserId: true }
+});
+```
+
+**Resolution order on each API call:**
+1. `config.userId` (string or function), if set
+2. `userManager.currentUser` — which is the submitted email after `nativeForm` or `hubspot` form submission (when `useEmailAsUserId: true`)
+3. Auto-generated `user_<domain><timestamp>_<random>` persisted in `localStorage`
 
 ---
 

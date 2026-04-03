@@ -1,3 +1,5 @@
+import { sanitizeHtml } from '../../utils/sanitize.js';
+
 /**
  * Split text at product injection marker
  * @param {string} text
@@ -185,7 +187,7 @@ export function addMessage(chatnest, text, sender, useTypewriter = true, meta = 
         const marker = chatnest.config.productInjectionMarker;
 
         const renderContentWithProducts = (contentContainer, textBefore, textAfter, productsArr) => {
-            const parseMd = (t) => useMarkdown && window.marked ? window.marked.parse(t || '') : (t || '');
+            const parseMd = (t) => useMarkdown && window.marked ? sanitizeHtml(window.marked.parse(t || '')) : (t || '');
             if (textBefore) {
                 const beforeDiv = document.createElement('div');
                 beforeDiv.className = 'message-content-part';
@@ -210,7 +212,7 @@ export function addMessage(chatnest, text, sender, useTypewriter = true, meta = 
                 contentContainer.className = 'message-content';
                 messageDiv.appendChild(contentContainer);
 
-                chatnest.typeWriter(contentContainer, window.marked.parse(text), () => {
+                chatnest.typeWriter(contentContainer, sanitizeHtml(window.marked.parse(text)), () => {
                     if (actionsDiv && showActions) {
                         actionsDiv.style.display = 'flex';
                     }
@@ -225,12 +227,12 @@ export function addMessage(chatnest, text, sender, useTypewriter = true, meta = 
                     if (split) {
                         renderContentWithProducts(contentContainer, split.before, split.after, products);
                     } else {
-                        contentContainer.innerHTML = window.marked.parse(text);
+                        contentContainer.innerHTML = sanitizeHtml(window.marked.parse(text));
                         const carousel = createProductCarousel(products, format);
                         contentContainer.appendChild(carousel);
                     }
                 } else {
-                    contentContainer.innerHTML = window.marked.parse(text);
+                    contentContainer.innerHTML = sanitizeHtml(window.marked.parse(text));
                 }
                 messageDiv.appendChild(contentContainer);
 

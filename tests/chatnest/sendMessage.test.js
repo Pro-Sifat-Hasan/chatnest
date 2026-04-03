@@ -1,6 +1,11 @@
 /**
  * Tests for the Supabase await-save guard in sendMessage.js (Bug 4 fix).
  *
+ * sendMessage() requires a full Chatnest DOM (widget, chatInput, typingIndicator,
+ * API call stack) which is impractical to spin up in unit tests. Instead we test
+ * the guard-relevant section in isolation, using the real isEmptyResponse from
+ * source so that coverage instruments the actual module.
+ *
  * Verifies that:
  * 1. saveChatPair is awaited before enableSending() clears the in-flight guard
  * 2. isWaitingForResponse stays true until save resolves
@@ -8,17 +13,11 @@
  * 4. If saveChatPair throws, enableSending is still called (no hang)
  */
 
-// ── Simplified sendMessage logic (the Supabase save section) ─────────────────
-// We test only the guard-relevant section, not the full sendMessage function
-// (which requires a full Chatnest DOM setup).
+const { isEmptyResponse } = require('../../src/lib/utils/response.js');
+
+// ── Re-implement only the guard section using the real isEmptyResponse ─────────
 
 async function supabaseSaveSection(chatnest, responseText, message, isRegeneration) {
-    function isEmptyResponse(text) {
-        if (text == null) return true;
-        const s = String(text).trim();
-        return !s;
-    }
-
     if (chatnest.supabaseManager?.isReady && !isRegeneration && !isEmptyResponse(responseText)) {
         const userId = chatnest.userManager.currentUser;
         const domain = chatnest.userManager.domain;
@@ -117,14 +116,14 @@ describe('sendMessage Supabase save guard (Bug 4)', () => {
 
     test('skips save when isRegeneration is true', async () => {
         const cn = makeChatnest();
-        await supabaseSaveSection(cn, 'R', 'Q', true); // isRegeneration = true
+        await supabaseSaveSection(cn, 'R', 'Q', true);
         expect(cn.supabaseManager.saveChatPair).not.toHaveBeenCalled();
         expect(cn.enableSendingFunctionality).toHaveBeenCalledTimes(1);
     });
 
     test('skips save when responseText is empty', async () => {
         const cn = makeChatnest();
-        await supabaseSaveSection(cn, '', 'Q', false); // empty response
+        await supabaseSaveSection(cn, '', 'Q', false);
         expect(cn.supabaseManager.saveChatPair).not.toHaveBeenCalled();
         expect(cn.enableSendingFunctionality).toHaveBeenCalledTimes(1);
     });
@@ -142,6 +141,26 @@ describe('sendMessage Supabase save guard (Bug 4)', () => {
         await supabaseSaveSection(cn, 'R', 'Q', false);
         expect(cn.enableSendingFunctionality).toHaveBeenCalledTimes(1);
     });
+
+    // ── isEmptyResponse from real source used for skip decisions ─────────────
+
+    test('skips save for whitespace-only responseText (real isEmptyResponse)', async () => {
+        const cn = makeChatnest();
+        await supabaseSaveSection(cn, '   ', 'Q', false);
+        expect(cn.supabaseManager.saveChatPair).not.toHaveBeenCalled();
+    });
+
+    test('skips save for JSON empty response (real isEmptyResponse)', async () => {
+        const cn = makeChatnest();
+        await supabaseSaveSection(cn, '{"response":""}', 'Q', false);
+        expect(cn.supabaseManager.saveChatPair).not.toHaveBeenCalled();
+    });
+
+    test('saves for real response text (real isEmptyResponse)', async () => {
+        const cn = makeChatnest();
+        await supabaseSaveSection(cn, 'Here is your answer', 'Q', false);
+        expect(cn.supabaseManager.saveChatPair).toHaveBeenCalledTimes(1);
+    });
 });
 
 // ── Background refresh cannot fire while save is pending ─────────────────────
@@ -152,7 +171,6 @@ describe('backgroundRefresh cannot run during Supabase save', () => {
 
         const cn = makeChatnest({
             saveChatPair: jest.fn(() => new Promise(resolve => {
-                // Check the guard mid-save
                 guardDuringeSave = cn.isWaitingForResponse;
                 resolve(1);
             }))

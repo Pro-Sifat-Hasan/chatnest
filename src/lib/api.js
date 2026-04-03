@@ -11,9 +11,19 @@
  * @returns {Object}
  */
 export function formatRequestData(config, userManager, message, files = []) {
+    // Resolve userId: config.userId (string or function) → email from nativeForm → auto-generated
+    let resolvedUserId;
+    if (typeof config.userId === 'function') {
+        resolvedUserId = config.userId(userManager);
+    } else if (typeof config.userId === 'string' && config.userId.trim()) {
+        resolvedUserId = config.userId.trim();
+    } else {
+        resolvedUserId = userManager.currentUser;
+    }
+
     const baseRequest = {
         [config.apiRequestFormat.query]: message,
-        [config.apiRequestFormat.userId]: userManager.currentUser,
+        [config.apiRequestFormat.userId]: resolvedUserId,
         [config.apiRequestFormat.domain]: userManager.domain
     };
 

@@ -3,90 +3,7 @@
  * Uses jsdom's localStorage mock.
  */
 
-// ── Inline ChatStorageManager (CJS-compatible) ────────────────────────────────
-
-function safeGet(key) {
-    try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : null;
-    } catch (_) { return null; }
-}
-function safeSet(key, value) {
-    try {
-        localStorage.setItem(key, JSON.stringify(value));
-    } catch (err) { /* quota */ }
-}
-
-class ChatStorageManager {
-    constructor(userManager, config) {
-        this.userManager = userManager;
-        this.config = config;
-        this.enableHistory = config.enableHistory !== false;
-        this.maxHistoryLength = config.maxHistoryLength || 100;
-        this.widget = null;
-        this.domain = userManager.domain;
-        this.path = userManager.path;
-    }
-    setWidget(widget) { this.widget = widget; }
-    getChatHistory() {
-        if (!this.enableHistory) return [];
-        const historyKey = this.userManager.getHistoryKey();
-        const history = safeGet(historyKey) || [];
-        if (this.config.separateSubpageHistory) {
-            return history.filter(item =>
-                (!item.domain || item.domain === this.domain) &&
-                (!item.path   || item.path   === this.path)
-            );
-        }
-        return history.filter(item => !item.domain || item.domain === this.domain);
-    }
-    saveMessage(message, sender, isRegenerated = false, options = {}) {
-        if (!this.enableHistory) return;
-        const historyKey = this.userManager.getHistoryKey();
-        let chatHistory = this.getChatHistory();
-        if (isRegenerated && sender === 'bot') {
-            const lastUserIndex = chatHistory.findLastIndex(msg => msg.sender === 'user');
-            if (lastUserIndex !== -1) chatHistory = chatHistory.slice(0, lastUserIndex + 1);
-        }
-        const messageData = {
-            message, sender,
-            timestamp: new Date().toISOString(),
-            domain: this.domain,
-            isRegenerated
-        };
-        if (options.files?.length > 0)    messageData.files    = options.files;
-        if (options.products?.length > 0) messageData.products = options.products;
-        if (this.config.separateSubpageHistory) messageData.path = this.path;
-        chatHistory.push(messageData);
-        if (chatHistory.length > this.maxHistoryLength) {
-            chatHistory = chatHistory.slice(-this.maxHistoryLength);
-        }
-        safeSet(historyKey, chatHistory);
-    }
-    saveParlantMessage(message, sender, queryId) {
-        if (!this.enableHistory) return;
-        const historyKey = this.userManager.getHistoryKey();
-        let chatHistory = this.getChatHistory();
-        const messageData = {
-            message, sender,
-            timestamp: new Date().toISOString(),
-            domain: this.domain,
-            queryId,
-            userSessionId: this.userManager.userSessionId
-        };
-        if (this.config.separateSubpageHistory) messageData.path = this.path;
-        chatHistory.push(messageData);
-        if (chatHistory.length > this.maxHistoryLength) {
-            chatHistory = chatHistory.slice(-this.maxHistoryLength);
-        }
-        safeSet(historyKey, chatHistory);
-    }
-    clearHistory() {
-        if (!this.enableHistory) return;
-        const historyKey = this.userManager.getHistoryKey();
-        safeSet(historyKey, []);
-    }
-}
+const { ChatStorageManager } = require('../../src/lib/ChatStorageManager.js');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -132,7 +49,6 @@ describe('ChatStorageManager.getChatHistory', () => {
 
     test('does not return messages from other domains', () => {
         const key = 'chatnest_history_shared_user1';
-        // Manually inject a message from a different domain
         localStorage.setItem(key, JSON.stringify([
             { message: 'other', sender: 'user', domain: 'other.com', timestamp: new Date().toISOString() }
         ]));
@@ -163,7 +79,6 @@ describe('ChatStorageManager.saveMessage', () => {
     test('does not save when enableHistory is false', () => {
         const sm = makeStorageManager({ enableHistory: false });
         sm.saveMessage('Hi', 'user');
-        // Cannot call getChatHistory (returns []) so check localStorage directly
         const raw = localStorage.getItem(makeUserManager().getHistoryKey());
         expect(raw).toBeNull();
     });
@@ -181,10 +96,10 @@ describe('ChatStorageManager.saveMessage', () => {
         sm.saveMessage('1', 'user');
         sm.saveMessage('2', 'user');
         sm.saveMessage('3', 'user');
-        sm.saveMessage('4', 'user'); // exceeds limit
+        sm.saveMessage('4', 'user');
         const hist = sm.getChatHistory();
         expect(hist).toHaveLength(3);
-        expect(hist[0].message).toBe('2'); // oldest trimmed
+        expect(hist[0].message).toBe('2');
         expect(hist[2].message).toBe('4');
     });
 
@@ -192,9 +107,8 @@ describe('ChatStorageManager.saveMessage', () => {
         const sm = makeStorageManager();
         sm.saveMessage('user q', 'user');
         sm.saveMessage('old bot', 'bot');
-        sm.saveMessage('new bot', 'bot', true); // regenerated
+        sm.saveMessage('new bot', 'bot', true);
         const hist = sm.getChatHistory();
-        // old bot should be gone, replaced by new bot
         expect(hist.some(m => m.message === 'old bot')).toBe(false);
         expect(hist[hist.length - 1].message).toBe('new bot');
     });
@@ -233,7 +147,6 @@ describe('ChatStorageManager.clearHistory', () => {
 
     test('does nothing when enableHistory is false', () => {
         const sm = makeStorageManager({ enableHistory: false });
-        // Should not throw
         expect(() => sm.clearHistory()).not.toThrow();
     });
 });
@@ -271,7 +184,6 @@ describe('ChatStorageManager.saveParlantMessage', () => {
 
 describe('ChatStorageManager separateSubpageHistory', () => {
     test('filters by path when separateSubpageHistory is true', () => {
-        // Each manager uses its own key so localStorage entries don't cross-contaminate
         const sm1 = makeStorageManager(
             { separateSubpageHistory: true },
             { domain: 'x.com', path: '/about', historyKey: 'chatnest_sp_about' }
@@ -302,7 +214,6 @@ describe('ChatStorageManager separateSubpageHistory', () => {
         sm1.saveMessage('about msg', 'user');
         sm2.saveMessage('home msg', 'user');
 
-        // sm1 sees only /about entries; sm2 sees only /home entries
         const h1 = sm1.getChatHistory();
         const h2 = sm2.getChatHistory();
         expect(h1.every(m => m.path === '/about')).toBe(true);
